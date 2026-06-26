@@ -17,10 +17,10 @@ import { join } from 'path';
         },
       },
       defaults: {
-        from: '"No Reply" <noreply@example.com>',
+        from: process.env.MAIL_FROM || '"Rhino Air Portal" <noreply@rhinoair.com>',
       },
       template: {
-        dir: join(__dirname, 'templates'), // This might need adjustment based on build output
+        dir: join(__dirname, 'templates'),
         adapter: new HandlebarsAdapter(),
         options: {
           strict: true,

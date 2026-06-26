@@ -25,8 +25,8 @@ async function bootstrap() {
   // Swagger setup
   const swaggerPath = `${apiPrefix}/docs`;
   const config = new DocumentBuilder()
-    .setTitle('Aimalya API')
-    .setDescription('The Aimalya API documentation')
+    .setTitle('Rhino Air Portal API')
+    .setDescription('Backend API for the Rhino Air partner portal')
     .setVersion('1.0')
     .addBearerAuth()
     .build();
@@ -41,10 +41,10 @@ async function bootstrap() {
 
   await app.listen(displayPort);
   logger.log(
-    `🚀 Application is running on: http://localhost:${displayPort}/${apiPrefix}`,
+    `Application is running on: http://localhost:${displayPort}/${apiPrefix}`,
   );
   logger.log(
-    `📚 Swagger documentation: http://localhost:${displayPort}/${swaggerPath}`,
+    `Swagger documentation: http://localhost:${displayPort}/${swaggerPath}`,
   );
 }
 void bootstrap();

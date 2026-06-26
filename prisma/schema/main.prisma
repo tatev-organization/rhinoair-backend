@@ -8,13 +8,87 @@ datasource db {
 }
 
 enum Role {
-  USER
+  PARTNER
   ADMIN
   SUPER_ADMIN
 }
 
 enum Status {
   ACTIVE
-  TRIAL
-  SUSPEND
+  INVITED
+  DISABLED
+}
+
+enum ProjectStatus {
+  ACTIVE
+  QUOTED
+  COMPLETED
+  ON_HOLD
+}
+
+enum InvoiceStatus {
+  DUE
+  SCHEDULED
+  PAID
+  OVERDUE
+}
+
+enum ChangeOrderStatus {
+  PENDING
+  APPROVED
+  DECLINED
+}
+
+enum DocumentType {
+  BLUEPRINT
+  AGREEMENT
+  PERMIT
+  SUBMITTAL
+  CERTIFICATE
+  ESTIMATE
+  CHANGE_ORDER
+  INVOICE
+  PHOTO
+  SHARED
+  OTHER
+}
+
+enum DocumentStatus {
+  AVAILABLE
+  PENDING
+  SIGNED
+}
+
+enum PhaseStatus {
+  DONE
+  CURRENT
+  UPCOMING
+}
+
+enum TaskStatus {
+  COMPLETE
+  IN_PROGRESS
+  NOT_STARTED
+}
+
+enum QuoteStatus {
+  DRAFT
+  SUBMITTED
+  ACCEPTED
+  SUPERSEDED
+  APPROVED
+  REJECTED
+}
+
+enum AlertType {
+  ESTIMATE_READY
+  DOCUMENT_READY
+  INVOICE_DUE
+  CHANGE_ORDER_PENDING
+}
+
+enum AlertStatus {
+  UNREAD
+  READ
+  RESOLVED
 }

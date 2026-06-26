@@ -8,8 +8,8 @@ export class MailService {
   async sendVerificationCode(email: string, code: string) {
     await this.mailerService.sendMail({
       to: email,
-      subject: 'Welcome to Aimalya - Verify Your Email',
-      template: './verification', // path to template file
+      subject: 'Welcome to Rhino Air Portal - Verify Your Email',
+      template: './verification',
       context: {
         code,
       },
@@ -19,11 +19,19 @@ export class MailService {
   async sendPasswordReset(email: string, code: string) {
     await this.mailerService.sendMail({
       to: email,
-      subject: 'Aimalya - Password Reset Request',
+      subject: 'Rhino Air Portal - Password Reset Request',
       template: './password-reset',
       context: {
         code,
       },
+    });
+  }
+
+  async sendQuoteSubmittedNotification(to: string, quoteNumber: string) {
+    await this.mailerService.sendMail({
+      to,
+      subject: `New Rhino Air quote submitted: ${quoteNumber}`,
+      text: `A new partner quote has been submitted. Quote number: ${quoteNumber}`,
     });
   }
 }

@@ -1,30 +1,250 @@
-model BusinessInformation {
-  businessInformationId String     @id @default(uuid())
-  businessName          String
-  businessCategory      String
-  website               String?
-  competitor            String?
-  rating                Float?
-  review                String?
-  locations             Location[]
-  userId                String
-  user                  User                @relation(fields: [userId], references: [userId], onDelete: Cascade)
+model Company {
+  companyId       String    @id @default(uuid())
+  name            String
+  tier            Int       @default(4)
+  email           String?
+  phone           String?
+  address         String?
+  contactName     String?
+  partnerSince    DateTime?
+  approvedJobsYtd Int       @default(0)
+  annualGoal      Int       @default(12)
+  repName         String?
+  repRole         String?
+  repPhone        String?
+  repEmail        String?
+
+  users        User[]
+  projects     Project[]
+  invoices     Invoice[]
+  documents    Document[]
+  photos       Photo[]
+  changeOrders ChangeOrder[]
+  quotes       Quote[]
+  alerts       Alert[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([businessCategory])
-  @@index([businessName])
+  @@index([name])
 }
 
-model Location {
-  locationId            String              @id @default(uuid())
-  url                   String
-  address               String
-  businessInformationId String
-  businessInformation   BusinessInformation @relation(fields: [businessInformationId], references: [businessInformationId], onDelete: Cascade)
-  createdAt             DateTime            @default(now())
-  updatedAt             DateTime            @updatedAt
+model Project {
+  projectId         String        @id @default(uuid())
+  companyId         String
+  company           Company       @relation(fields: [companyId], references: [companyId], onDelete: Cascade)
+  name              String
+  address           String?
+  status            ProjectStatus @default(ACTIVE)
+  systemSummary     String?
+  currentPhase      String?
+  phaseClass        String?
+  currentPhaseIndex Int?
+  docsCount         Int           @default(0)
+  quotedPrice       Decimal?      @db.Decimal(12, 2)
+  quoteNumber       String?
+  contractTotal     Decimal       @default(0) @db.Decimal(12, 2)
+  paidAmount        Decimal       @default(0) @db.Decimal(12, 2)
+  startDate         DateTime?
+  targetDate        DateTime?
+  roughInspectionAt DateTime?
+  finalInspectionAt DateTime?
+  completedAt       DateTime?
 
-  @@index([address])
+  invoices     Invoice[]
+  documents    Document[]
+  photos       Photo[]
+  changeOrders ChangeOrder[]
+  quotes       Quote[]
+  phases       ProjectPhase[]
+  alerts       Alert[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([status])
+}
+
+model ProjectPhase {
+  phaseId   String      @id @default(uuid())
+  projectId String
+  project   Project     @relation(fields: [projectId], references: [projectId], onDelete: Cascade)
+  name      String
+  status    PhaseStatus @default(UPCOMING)
+  sortOrder Int
+  startDate DateTime?
+  endDate   DateTime?
+  note      String?
+
+  tasks ProjectTask[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId, sortOrder])
+  @@index([projectId])
+  @@index([status])
+}
+
+model ProjectTask {
+  taskId    String     @id @default(uuid())
+  phaseId   String
+  phase     ProjectPhase @relation(fields: [phaseId], references: [phaseId], onDelete: Cascade)
+  name      String
+  status    TaskStatus @default(NOT_STARTED)
+  sortOrder Int
+  isInspection Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([phaseId, sortOrder])
+  @@index([phaseId])
+  @@index([status])
+}
+
+model Invoice {
+  invoiceId           String        @id @default(uuid())
+  companyId           String
+  company             Company       @relation(fields: [companyId], references: [companyId], onDelete: Cascade)
+  projectId           String?
+  project             Project?      @relation(fields: [projectId], references: [projectId], onDelete: SetNull)
+  serviceTitanId      String?
+  invoiceNumber       String
+  description         String?
+  status              InvoiceStatus @default(DUE)
+  amount              Decimal       @default(0) @db.Decimal(12, 2)
+  drawPercent         Int?
+  dueDate             DateTime?
+  scheduledOn         String?
+  paidAt              DateTime?
+  serviceTitanPayload Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, invoiceNumber])
+  @@index([companyId])
+  @@index([projectId])
+  @@index([status])
+}
+
+model Document {
+  documentId String       @id @default(uuid())
+  companyId  String
+  company    Company      @relation(fields: [companyId], references: [companyId], onDelete: Cascade)
+  projectId  String?
+  project    Project?     @relation(fields: [projectId], references: [projectId], onDelete: SetNull)
+  type       DocumentType @default(OTHER)
+  status     DocumentStatus @default(AVAILABLE)
+  category   String?
+  icon       String?
+  badge      String?
+  name       String
+  fileUrl    String?
+  fileKey    String?
+  mimeType   String?
+  sizeBytes  Int?
+  uploadedBy String?
+  availableAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([projectId])
+  @@index([type])
+  @@index([status])
+}
+
+model Photo {
+  photoId   String  @id @default(uuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [companyId], onDelete: Cascade)
+  projectId String
+  project   Project @relation(fields: [projectId], references: [projectId], onDelete: Cascade)
+  title     String?
+  caption   String?
+  imageUrl  String
+  imageKey  String?
+  phase     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([projectId])
+}
+
+model ChangeOrder {
+  changeOrderId String            @id @default(uuid())
+  companyId     String
+  company       Company           @relation(fields: [companyId], references: [companyId], onDelete: Cascade)
+  projectId     String
+  project       Project           @relation(fields: [projectId], references: [projectId], onDelete: Cascade)
+  number        String
+  title         String
+  scope         String?
+  description   String?
+  amount        Decimal           @default(0) @db.Decimal(12, 2)
+  status        ChangeOrderStatus @default(PENDING)
+  documentId    String?
+  decidedAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([projectId])
+  @@index([status])
+  @@unique([projectId, number])
+}
+
+model Quote {
+  quoteId       String      @id @default(uuid())
+  companyId     String
+  company       Company     @relation(fields: [companyId], references: [companyId], onDelete: Cascade)
+  projectId     String?
+  project       Project?    @relation(fields: [projectId], references: [projectId], onDelete: SetNull)
+  submittedById String?
+  submittedBy   User?       @relation(fields: [submittedById], references: [userId], onDelete: SetNull)
+  quoteNumber   String      @unique
+  builderName   String
+  projectAddress String?
+  scope         String?
+  tierLabel     String?
+  status        QuoteStatus @default(SUBMITTED)
+  total         Decimal     @default(0) @db.Decimal(12, 2)
+  validUntil    DateTime?
+  payload       Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([projectId])
+  @@index([submittedById])
+  @@index([status])
+}
+
+model Alert {
+  alertId   String      @id @default(uuid())
+  companyId String
+  company   Company     @relation(fields: [companyId], references: [companyId], onDelete: Cascade)
+  projectId String?
+  project   Project?    @relation(fields: [projectId], references: [projectId], onDelete: SetNull)
+  type      AlertType
+  status    AlertStatus @default(UNREAD)
+  title     String
+  message   String?
+  href      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([projectId])
+  @@index([type])
+  @@index([status])
 }

@@ -1,47 +1,28 @@
 model User {
-    userId    String   @id @default(uuid())
-    email     String   @unique
-    password  String
-    name      String
-    role      Role     @default(USER)
-    status    Status   @default(TRIAL)
-    updatedAt DateTime @updatedAt
-    createAt  DateTime @default(now())
+  userId    String @id @default(uuid())
+  email     String @unique
+  password  String
+  name      String
+  phone     String?
+  role      Role   @default(PARTNER)
+  status    Status @default(INVITED)
 
-    googleAuth        Boolean   @default(false)
-    language          String?
-    profileImage      String?
-    operationsRole    String?
-    otp               Int?
-    isVerified        Boolean   @default(false)
-    refreshToken      String?
-    resetToken        String?
-    resetTokenExpires DateTime?
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [companyId], onDelete: SetNull)
 
-    businessInformation  BusinessInformation[]
-    notifications        Notification[]
-    supportTickets       SupportTicket[]       @relation("SupportTicketUsers")
-    cardInfo             CardInfo?
-    subscriptions        Subscription[]
-    notificationSettings NotificationSettings?
+  otp               Int?
+  isVerified        Boolean   @default(false)
+  refreshToken      String?
+  resetToken        String?
+  resetTokenExpires DateTime?
+  lastLoginAt       DateTime?
 
-    @@index([operationsRole])
-    @@index([name])
-    @@index([googleAuth])
-}
+  quotes Quote[]
 
-model NotificationSettings {
-    notificationSettingsId String @id @default(cuid())
-    userId                 String @unique
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
 
-    emailMonthlyReports  Boolean  @default(true)
-    emailImportantAlerts Boolean  @default(true)
-    emailWeeklySummary   Boolean  @default(true)
-    inAppNegativeReview  Boolean  @default(true)
-    inAppRatingDrop      Boolean  @default(true)
-    inAppMonthlyReport   Boolean  @default(true)
-    updatedAt            DateTime @updatedAt
-    createAt             DateTime @default(now())
-
-    user User @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  @@index([companyId])
+  @@index([role])
+  @@index([status])
 }

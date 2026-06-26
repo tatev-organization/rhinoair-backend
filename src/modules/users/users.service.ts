@@ -21,12 +21,8 @@ export class UsersService {
   findAll() {
     return this.prisma.user.findMany({
       include: {
-        businessInformation: true,
-        notifications: true,
-        subscriptions: true,
-        cardInfo: true,
-        supportTickets: true,
-      }
+        company: true,
+      },
     });
   }
 
@@ -34,12 +30,8 @@ export class UsersService {
     const user = await this.prisma.user.findUnique({
       where: { userId },
       include: {
-        businessInformation: true,
-        notifications: true,
-        subscriptions: true,
-        cardInfo: true,
-        supportTickets: true,
-      }
+        company: true,
+      },
     });
     if (!user) {
       throw new NotFoundException(`User with ID ${userId} not found`);

@@ -2,7 +2,7 @@ import { registerAs } from '@nestjs/config';
 
 export default registerAs('app', () => ({
   nodeEnv: process.env.NODE_ENV || 'development',
-  name: process.env.APP_NAME || 'aimalya',
+  name: process.env.APP_NAME || 'rhino-air-portal-api',
   workingDirectory: process.cwd(),
   frontendDomain: process.env.FRONTEND_DOMAIN,
   backendDomain: process.env.BACKEND_DOMAIN,

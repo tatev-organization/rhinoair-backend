@@ -3,9 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
 import { MailService } from '../mail/mail.service';
-import { PrismaService } from '../../prisma/prisma.service';
 import { RegisterDto, LoginDto, ForgotPasswordDto, ResetPasswordDto, VerificationDto } from './dto/auth.dto';
-import * as crypto from 'crypto';
 
 @Injectable()
 export class AuthService {
@@ -14,8 +12,7 @@ export class AuthService {
     private jwtService: JwtService,
     private configService: ConfigService,
     private mailService: MailService,
-    private prisma: PrismaService,
-  ) {}
+  ) { }
 
   async register(registerDto: RegisterDto) {
     const existingUser = await this.usersService.findByEmail(registerDto.email);
@@ -50,21 +47,13 @@ export class AuthService {
 
   async login(loginDto: LoginDto) {
     let user: any = await this.usersService.findByEmail(loginDto.email);
-    let role = 'USER';
-
-    if (!user) {
-      // Check Admin table
-      user = await this.prisma.admin.findUnique({ where: { email: loginDto.email } });
-      if (user) role = user.role;
-    }
 
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    // For regular users, check verification
-    if (role === 'USER' && !user.isVerified) {
-       throw new UnauthorizedException('Email not verified');
+    if (!user.isVerified) {
+      throw new UnauthorizedException('Email not verified');
     }
 
     const isPasswordValid = await this.usersService.verifyPassword(loginDto.password, user.password);
@@ -72,7 +61,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    return this.generateTokens(user.userId || user.adminId, user.email, role);
+    return this.generateTokens(user.userId, user.email, user.role, user.companyId ?? undefined);
   }
 
   async refresh(refreshToken: string) {
@@ -86,7 +75,7 @@ export class AuthService {
         throw new UnauthorizedException();
       }
 
-      return this.generateTokens(user.userId, user.email, user.role as any);
+      return this.generateTokens(user.userId, user.email, user.role as any, user.companyId ?? undefined);
     } catch (e) {
       throw new UnauthorizedException();
     }
@@ -127,10 +116,10 @@ export class AuthService {
     return { message: 'Password reset successful' };
   }
 
-  private async generateTokens(userId: string, email: string, role: string) {
+  private async generateTokens(userId: string, email: string, role: string, companyId?: string) {
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(
-        { sub: userId, email, role },
+        { sub: userId, email, role, companyId },
         {
           secret: this.configService.get('jwt.secret'),
           expiresIn: this.configService.get('jwt.expiresIn'),

@@ -7,8 +7,6 @@ import {
   PhaseStatus,
   PrismaClient,
   ProjectStatus,
-  Role,
-  Status,
   TaskStatus,
 } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
@@ -22,7 +20,6 @@ const prisma = new PrismaClient({ adapter });
 async function main() {
   console.log('Seeding Rhino Air portal database...');
 
-  const adminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@rhinoair.com';
   const partnerEmail = process.env.SEED_PARTNER_EMAIL || 'partner@example.com';
   const seedPassword = process.env.SEED_PASSWORD || 'password123';
   const hashedPassword = await bcrypt.hash(seedPassword, 10);
@@ -39,6 +36,7 @@ async function main() {
       name: 'Mid Construction Group',
       tier: 4,
       email: partnerEmail,
+      password: hashedPassword,
       phone: '(310) 555-0148',
       address: '9100 Wilshire Blvd, Beverly Hills, CA 90212',
       contactName: 'David Mirzakhanian',
@@ -49,33 +47,6 @@ async function main() {
       repRole: 'Project Manager',
       repPhone: '(818) 900-4007',
       repEmail: 'sam.yaghobi@rhinoair.com',
-    },
-  });
-
-  await prisma.user.upsert({
-    where: { email: adminEmail },
-    update: {},
-    create: {
-      email: adminEmail,
-      password: hashedPassword,
-      name: 'Rhino Air Admin',
-      role: Role.ADMIN,
-      status: Status.ACTIVE,
-      isVerified: true,
-    },
-  });
-
-  await prisma.user.upsert({
-    where: { email: partnerEmail },
-    update: {},
-    create: {
-      email: partnerEmail,
-      password: hashedPassword,
-      name: 'Test Partner',
-      role: Role.PARTNER,
-      status: Status.ACTIVE,
-      isVerified: true,
-      companyId: company.companyId,
     },
   });
 
@@ -107,8 +78,16 @@ async function main() {
       endDate: new Date('2026-06-09'),
       tasks: {
         create: [
-          { name: 'Design & measuring', status: TaskStatus.COMPLETE, sortOrder: 1 },
-          { name: 'Equipment / materials preparing', status: TaskStatus.COMPLETE, sortOrder: 2 },
+          {
+            name: 'Design & measuring',
+            status: TaskStatus.COMPLETE,
+            sortOrder: 1,
+          },
+          {
+            name: 'Equipment / materials preparing',
+            status: TaskStatus.COMPLETE,
+            sortOrder: 2,
+          },
         ],
       },
     },
@@ -124,11 +103,28 @@ async function main() {
       endDate: new Date('2026-06-23'),
       tasks: {
         create: [
-          { name: 'Indoor units installation', status: TaskStatus.COMPLETE, sortOrder: 1 },
-          { name: 'Ductwork rough-in (trunk & branch runs)', status: TaskStatus.IN_PROGRESS, sortOrder: 2 },
-          { name: 'Line sets, drains & low voltage', status: TaskStatus.NOT_STARTED, sortOrder: 3 },
+          {
+            name: 'Indoor units installation',
+            status: TaskStatus.COMPLETE,
+            sortOrder: 1,
+          },
+          {
+            name: 'Ductwork rough-in (trunk & branch runs)',
+            status: TaskStatus.IN_PROGRESS,
+            sortOrder: 2,
+          },
+          {
+            name: 'Line sets, drains & low voltage',
+            status: TaskStatus.NOT_STARTED,
+            sortOrder: 3,
+          },
           { name: 'Exhausts', status: TaskStatus.NOT_STARTED, sortOrder: 4 },
-          { name: 'Ready for rough inspection', status: TaskStatus.NOT_STARTED, sortOrder: 5, isInspection: true },
+          {
+            name: 'Ready for rough inspection',
+            status: TaskStatus.NOT_STARTED,
+            sortOrder: 5,
+            isInspection: true,
+          },
         ],
       },
     },
@@ -145,10 +141,26 @@ async function main() {
       note: 'Begins when called back',
       tasks: {
         create: [
-          { name: 'Outdoor units installation', status: TaskStatus.NOT_STARTED, sortOrder: 1 },
-          { name: 'Registers, grilles & thermostats', status: TaskStatus.NOT_STARTED, sortOrder: 2 },
-          { name: 'Electrical after disconnect box', status: TaskStatus.NOT_STARTED, sortOrder: 3 },
-          { name: 'Startup, refrigerant balancing & test', status: TaskStatus.NOT_STARTED, sortOrder: 4 },
+          {
+            name: 'Outdoor units installation',
+            status: TaskStatus.NOT_STARTED,
+            sortOrder: 1,
+          },
+          {
+            name: 'Registers, grilles & thermostats',
+            status: TaskStatus.NOT_STARTED,
+            sortOrder: 2,
+          },
+          {
+            name: 'Electrical after disconnect box',
+            status: TaskStatus.NOT_STARTED,
+            sortOrder: 3,
+          },
+          {
+            name: 'Startup, refrigerant balancing & test',
+            status: TaskStatus.NOT_STARTED,
+            sortOrder: 4,
+          },
         ],
       },
     },
@@ -165,7 +177,12 @@ async function main() {
       note: 'After finishing',
       tasks: {
         create: [
-          { name: 'Ready for final inspection', status: TaskStatus.NOT_STARTED, sortOrder: 1, isInspection: true },
+          {
+            name: 'Ready for final inspection',
+            status: TaskStatus.NOT_STARTED,
+            sortOrder: 1,
+            isInspection: true,
+          },
         ],
       },
     },

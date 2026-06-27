@@ -1,132 +1,147 @@
-import { Injectable, UnauthorizedException, BadRequestException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { UsersService } from '../users/users.service';
-import { MailService } from '../mail/mail.service';
-import { RegisterDto, LoginDto, ForgotPasswordDto, ResetPasswordDto, VerificationDto } from './dto/auth.dto';
+import { PrismaService } from '../../prisma/prisma.service';
+import { LoginDto, ForgotPasswordDto, ResetPasswordDto } from './dto/auth.dto';
+import * as bcrypt from 'bcrypt';
+
+export interface AuthPartner {
+  companyId: string;
+}
 
 @Injectable()
 export class AuthService {
   constructor(
-    private usersService: UsersService,
+    private prisma: PrismaService,
     private jwtService: JwtService,
     private configService: ConfigService,
-    private mailService: MailService,
-  ) { }
-
-  async register(registerDto: RegisterDto) {
-    const existingUser = await this.usersService.findByEmail(registerDto.email);
-    if (existingUser) {
-      throw new ConflictException('Email already exists');
-    }
-
-    const otp = Math.floor(100000 + Math.random() * 900000);
-    const user = await this.usersService.create({
-      ...registerDto,
-      otp,
-    } as any);
-
-    await this.mailService.sendVerificationCode(user.email, otp.toString());
-
-    return { message: 'Registration successful. Please check your email for the verification code.' };
-  }
-
-  async verify(verificationDto: VerificationDto) {
-    const user = await this.usersService.findByEmail(verificationDto.email);
-    if (!user || user.otp !== parseInt(verificationDto.code, 10)) {
-      throw new BadRequestException('Invalid verification code');
-    }
-
-    await this.usersService.update(user.userId, {
-      isVerified: true,
-      otp: null,
-    } as any);
-
-    return { message: 'Email verified successfully' };
-  }
+  ) {}
 
   async login(loginDto: LoginDto) {
-    let user: any = await this.usersService.findByEmail(loginDto.email);
+    const company = await this.prisma.company.findUnique({
+      where: { email: loginDto.email },
+    });
 
-    if (!user) {
+    if (!company) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    if (!user.isVerified) {
-      throw new UnauthorizedException('Email not verified');
-    }
-
-    const isPasswordValid = await this.usersService.verifyPassword(loginDto.password, user.password);
+    const isPasswordValid = await bcrypt.compare(
+      loginDto.password,
+      company.password,
+    );
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    return this.generateTokens(user.userId, user.email, user.role, user.companyId ?? undefined);
+    await this.prisma.company.update({
+      where: { companyId: company.companyId },
+      data: { lastLoginAt: new Date() },
+    });
+
+    return this.generateTokens(company.companyId);
   }
 
   async refresh(refreshToken: string) {
     try {
-      const payload = await this.jwtService.verifyAsync(refreshToken, {
-        secret: this.configService.get('jwt.refreshSecret'),
+      const payload = await this.jwtService.verifyAsync<{ sub: string }>(
+        refreshToken,
+        { secret: this.configService.get('jwt.refreshSecret') },
+      );
+
+      const company = await this.prisma.company.findUnique({
+        where: { companyId: payload.sub },
       });
 
-      const user = await this.usersService.findOne(payload.sub);
-      if (!user || user.refreshToken !== refreshToken) {
+      if (!company || company.refreshToken !== refreshToken) {
         throw new UnauthorizedException();
       }
 
-      return this.generateTokens(user.userId, user.email, user.role as any, user.companyId ?? undefined);
-    } catch (e) {
+      return this.generateTokens(company.companyId);
+    } catch {
       throw new UnauthorizedException();
     }
   }
 
   async forgotPassword(forgotPasswordDto: ForgotPasswordDto) {
-    const user = await this.usersService.findByEmail(forgotPasswordDto.email);
-    if (!user) {
-      throw new BadRequestException('User not found');
+    const company = await this.prisma.company.findUnique({
+      where: { email: forgotPasswordDto.email },
+    });
+
+    // Always return success to prevent email enumeration
+    if (!company) {
+      return { message: 'If that email exists, a reset code has been sent.' };
     }
 
     const code = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiry = new Date();
-    expiry.setMinutes(expiry.getMinutes() + 10);
+    const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
-    await this.usersService.update(user.userId, {
-      resetToken: code,
-      resetTokenExpires: expiry,
-    } as any);
+    await this.prisma.company.update({
+      where: { companyId: company.companyId },
+      data: { resetToken: code, resetTokenExpires: expires },
+    });
 
-    await this.mailService.sendPasswordReset(user.email, code);
-
-    return { message: 'Password reset code sent to your email' };
+    // TODO: send email with code
+    return { message: 'If that email exists, a reset code has been sent.' };
   }
 
   async resetPassword(resetPasswordDto: ResetPasswordDto) {
-    const user = await this.usersService.findByEmail(resetPasswordDto.email);
-    if (!user || user.resetToken !== resetPasswordDto.code || !user.resetTokenExpires || user.resetTokenExpires < new Date()) {
+    const company = await this.prisma.company.findUnique({
+      where: { email: resetPasswordDto.email },
+    });
+
+    if (
+      !company ||
+      company.resetToken !== resetPasswordDto.code ||
+      !company.resetTokenExpires ||
+      company.resetTokenExpires < new Date()
+    ) {
       throw new BadRequestException('Invalid or expired reset code');
     }
 
-    await this.usersService.update(user.userId, {
-      password: resetPasswordDto.newPassword,
-      resetToken: null,
-      resetTokenExpires: null,
-    } as any);
+    const hashed = await bcrypt.hash(resetPasswordDto.newPassword, 10);
 
-    return { message: 'Password reset successful' };
+    await this.prisma.company.update({
+      where: { companyId: company.companyId },
+      data: { password: hashed, resetToken: null, resetTokenExpires: null },
+    });
+
+    return { message: 'Password reset successfully' };
   }
 
-  private async generateTokens(userId: string, email: string, role: string, companyId?: string) {
+  async getProfile(companyId: string) {
+    const company = await this.prisma.company.findUnique({
+      where: { companyId },
+    });
+
+    if (!company) throw new NotFoundException('Company not found');
+
+    const {
+      password: _p,
+      refreshToken: _rt,
+      resetToken: _rst,
+      resetTokenExpires: _rte,
+      ...result
+    } = company;
+    return result;
+  }
+
+  private async generateTokens(companyId: string) {
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(
-        { sub: userId, email, role, companyId },
+        { sub: companyId },
         {
           secret: this.configService.get('jwt.secret'),
           expiresIn: this.configService.get('jwt.expiresIn'),
         },
       ),
       this.jwtService.signAsync(
-        { sub: userId },
+        { sub: companyId },
         {
           secret: this.configService.get('jwt.refreshSecret'),
           expiresIn: this.configService.get('jwt.refreshExpiresIn'),
@@ -134,11 +149,11 @@ export class AuthService {
       ),
     ]);
 
-    await this.usersService.update(userId, { refreshToken } as any);
+    await this.prisma.company.update({
+      where: { companyId },
+      data: { refreshToken },
+    });
 
-    return {
-      accessToken,
-      refreshToken,
-    };
+    return { accessToken, refreshToken };
   }
 }

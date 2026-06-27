@@ -1,38 +1,38 @@
-import { Controller, Post, Body, UnauthorizedException } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  UnauthorizedException,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import {
-  RegisterDto,
   LoginDto,
   RefreshTokenDto,
   ForgotPasswordDto,
   ResetPasswordDto,
-  VerificationDto,
 } from './dto/auth.dto';
 import { Public } from '../../common/decorators/public.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) { }
-
-  @Public()
-  @Post('register')
-  @ApiOperation({ summary: 'Register a new user' })
-  register(@Body() registerDto: RegisterDto) {
-    return this.authService.register(registerDto);
-  }
-
-  @Public()
-  @Post('verify')
-  @ApiOperation({ summary: 'Verify email with OTP' })
-  verify(@Body() verificationDto: VerificationDto) {
-    return this.authService.verify(verificationDto);
-  }
+  constructor(private readonly authService: AuthService) {}
 
   @Public()
   @Post('login')
-  @ApiOperation({ summary: 'Login and get tokens' })
+  @ApiOperation({ summary: 'Login with company email and password' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns access and refresh tokens.',
+  })
   login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);
   }
@@ -59,5 +59,13 @@ export class AuthController {
   @ApiOperation({ summary: 'Reset password with code' })
   resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
     return this.authService.resetPassword(resetPasswordDto);
+  }
+
+  @ApiBearerAuth()
+  @Get('me')
+  @ApiOperation({ summary: 'Get current logged-in partner profile' })
+  @ApiResponse({ status: 200, description: 'Current partner company profile.' })
+  getProfile(@CurrentUser() partner: { companyId: string }) {
+    return this.authService.getProfile(partner.companyId);
   }
 }

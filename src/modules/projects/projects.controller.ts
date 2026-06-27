@@ -1,13 +1,14 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Req } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { ProjectsService } from './projects.service';
+import { ProjectsService, AuthPartner } from './projects.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
 @ApiTags('Projects')
 @ApiBearerAuth()
@@ -16,25 +17,25 @@ export class ProjectsController {
   constructor(private readonly projectsService: ProjectsService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Get projects for the current user' })
+  @ApiOperation({ summary: 'Get projects for the current partner' })
   @ApiResponse({ status: 200, description: 'Returns project list.' })
-  findAll(@Req() req: any) {
-    return this.projectsService.findAll(req.user);
+  findAll(@CurrentUser() partner: AuthPartner) {
+    return this.projectsService.findAll(partner);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get a project by ID' })
   @ApiResponse({ status: 200, description: 'Returns project details.' })
   @ApiResponse({ status: 404, description: 'Project not found.' })
-  findOne(@Param('id') id: string, @Req() req: any) {
-    return this.projectsService.findOne(id, req.user);
+  findOne(@Param('id') id: string, @CurrentUser() partner: AuthPartner) {
+    return this.projectsService.findOne(id, partner);
   }
 
   @Post()
   @ApiOperation({ summary: 'Create a project' })
   @ApiResponse({ status: 201, description: 'Project created.' })
-  create(@Body() createProjectDto: CreateProjectDto, @Req() req: any) {
-    return this.projectsService.create(createProjectDto, req.user);
+  create(@Body() createProjectDto: CreateProjectDto, @CurrentUser() partner: AuthPartner) {
+    return this.projectsService.create(createProjectDto, partner);
   }
 
   @Patch(':id')
@@ -44,16 +45,16 @@ export class ProjectsController {
   update(
     @Param('id') id: string,
     @Body() updateProjectDto: UpdateProjectDto,
-    @Req() req: any,
+    @CurrentUser() partner: AuthPartner,
   ) {
-    return this.projectsService.update(id, updateProjectDto, req.user);
+    return this.projectsService.update(id, updateProjectDto, partner);
   }
 
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a project' })
   @ApiResponse({ status: 200, description: 'Project deleted.' })
   @ApiResponse({ status: 404, description: 'Project not found.' })
-  remove(@Param('id') id: string, @Req() req: any) {
-    return this.projectsService.remove(id, req.user);
+  remove(@Param('id') id: string, @CurrentUser() partner: AuthPartner) {
+    return this.projectsService.remove(id, partner);
   }
 }

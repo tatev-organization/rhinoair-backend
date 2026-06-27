@@ -1,20 +1,25 @@
 model Company {
-  companyId       String    @id @default(uuid())
+  companyId       String   @id @default(uuid())
   name            String
-  tier            Int       @default(4)
-  email           String?
+  email           String   @unique
+  password        String
+  tier            Int      @default(4)
   phone           String?
   address         String?
   contactName     String?
   partnerSince    DateTime?
-  approvedJobsYtd Int       @default(0)
-  annualGoal      Int       @default(12)
+  approvedJobsYtd Int      @default(0)
+  annualGoal      Int      @default(12)
   repName         String?
   repRole         String?
   repPhone        String?
   repEmail        String?
 
-  users        User[]
+  refreshToken      String?
+  resetToken        String?
+  resetTokenExpires DateTime?
+  lastLoginAt       DateTime?
+
   projects     Project[]
   invoices     Invoice[]
   documents    Document[]
@@ -202,29 +207,26 @@ model ChangeOrder {
 }
 
 model Quote {
-  quoteId       String      @id @default(uuid())
-  companyId     String
-  company       Company     @relation(fields: [companyId], references: [companyId], onDelete: Cascade)
-  projectId     String?
-  project       Project?    @relation(fields: [projectId], references: [projectId], onDelete: SetNull)
-  submittedById String?
-  submittedBy   User?       @relation(fields: [submittedById], references: [userId], onDelete: SetNull)
-  quoteNumber   String      @unique
-  builderName   String
+  quoteId        String      @id @default(uuid())
+  companyId      String
+  company        Company     @relation(fields: [companyId], references: [companyId], onDelete: Cascade)
+  projectId      String?
+  project        Project?    @relation(fields: [projectId], references: [projectId], onDelete: SetNull)
+  quoteNumber    String      @unique
+  builderName    String
   projectAddress String?
-  scope         String?
-  tierLabel     String?
-  status        QuoteStatus @default(SUBMITTED)
-  total         Decimal     @default(0) @db.Decimal(12, 2)
-  validUntil    DateTime?
-  payload       Json
+  scope          String?
+  tierLabel      String?
+  status         QuoteStatus @default(SUBMITTED)
+  total          Decimal     @default(0) @db.Decimal(12, 2)
+  validUntil     DateTime?
+  payload        Json
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([companyId])
   @@index([projectId])
-  @@index([submittedById])
   @@index([status])
 }
 

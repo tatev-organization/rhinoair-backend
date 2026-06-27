@@ -7,17 +7,6 @@ datasource db {
   provider = "postgresql"
 }
 
-enum Role {
-  PARTNER
-  ADMIN
-  SUPER_ADMIN
-}
-
-enum Status {
-  ACTIVE
-  INVITED
-  DISABLED
-}
 
 enum ProjectStatus {
   ACTIVE

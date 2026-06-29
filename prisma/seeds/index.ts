@@ -37,6 +37,7 @@ async function main() {
       tier: 4,
       email: partnerEmail,
       password: hashedPassword,
+      isVerified: true,
       phone: '(310) 555-0148',
       address: '9100 Wilshire Blvd, Beverly Hills, CA 90212',
       contactName: 'David Mirzakhanian',

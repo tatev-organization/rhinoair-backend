@@ -19,6 +19,8 @@ model Company {
   resetToken        String?
   resetTokenExpires DateTime?
   lastLoginAt       DateTime?
+  otp               String?
+  isVerified        Boolean  @default(false)
 
   projects     Project[]
   invoices     Invoice[]

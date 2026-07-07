@@ -3,6 +3,7 @@ import {
   UnauthorizedException,
   BadRequestException,
   NotFoundException,
+  Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -16,6 +17,7 @@ import {
 } from './dto/auth.dto';
 import * as bcrypt from 'bcrypt';
 import { MailService } from '../mail/mail.service';
+import { ServiceTitanService } from '../service-titan/service-titan.service';
 
 export interface AuthPartner {
   companyId: string;
@@ -23,11 +25,14 @@ export interface AuthPartner {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
     private configService: ConfigService,
     private mailService: MailService,
+    private stService: ServiceTitanService,
   ) {}
 
   async register(registerDto: RegisterDto) {
@@ -42,6 +47,24 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(registerDto.password, 10);
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
+    // Create customer in ST
+    let stCustomerId: number | null = null;
+    try {
+      const stCustomer = await this.stService.createCustomer(
+        registerDto.name,
+        registerDto.email,
+      );
+      if (stCustomer && stCustomer.id) {
+        stCustomerId = stCustomer.id;
+      }
+    } catch (err) {
+      this.logger.error(
+        'Failed to create ST customer during registration',
+        err,
+      );
+      // We don't block registration if ST fails
+    }
+
     await this.prisma.company.create({
       data: {
         name: registerDto.name,
@@ -49,7 +72,8 @@ export class AuthService {
         password: hashedPassword,
         otp,
         isVerified: false,
-      },
+        stCustomerId: stCustomerId ?? undefined,
+      } as any,
     });
 
     await this.mailService.sendVerificationCode(registerDto.email, otp);

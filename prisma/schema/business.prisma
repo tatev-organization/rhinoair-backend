@@ -15,6 +15,10 @@ model Company {
   repPhone        String?
   repEmail        String?
 
+  // ServiceTitan Integration Fields
+  stCustomerId    Int?     @unique
+  stLocationId    Int?
+
   refreshToken      String?
   resetToken        String?
   resetTokenExpires DateTime?

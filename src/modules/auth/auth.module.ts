@@ -6,12 +6,14 @@ import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { MailModule } from '../mail/mail.module';
+import { ServiceTitanModule } from '../service-titan/service-titan.module';
 
 @Module({
   imports: [
     PrismaModule,
     PassportModule,
     MailModule,
+    ServiceTitanModule,
     JwtModule.register({}),
   ],
   controllers: [AuthController],

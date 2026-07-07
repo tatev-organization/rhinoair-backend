@@ -12,6 +12,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { MailModule } from './modules/mail/mail.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { QuotesModule } from './modules/quotes/quotes.module';
+import { ServiceTitanModule } from './modules/service-titan/service-titan.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { QuotesModule } from './modules/quotes/quotes.module';
     MailModule,
     PrismaModule,
     QuotesModule,
+    ServiceTitanModule,
   ],
   controllers: [AppController],
   providers: [

@@ -17,6 +17,31 @@ export class RegisterDto {
   @IsNotEmpty()
   @MinLength(6)
   password: string;
+
+  @ApiProperty({ example: '+1234567890' })
+  @IsString()
+  @IsNotEmpty()
+  phone: string;
+
+  @ApiProperty({ example: '123 Main St' })
+  @IsString()
+  @IsNotEmpty()
+  street: string;
+
+  @ApiProperty({ example: 'Los Angeles' })
+  @IsString()
+  @IsNotEmpty()
+  city: string;
+
+  @ApiProperty({ example: 'CA' })
+  @IsString()
+  @IsNotEmpty()
+  state: string;
+
+  @ApiProperty({ example: '90001' })
+  @IsString()
+  @IsNotEmpty()
+  zip: string;
 }
 
 export class VerifyDto {

@@ -66,8 +66,7 @@ export class ServiceTitanService {
     data?: any,
   ): Promise<T> {
     const token = await this.getAccessToken();
-    const appKey =
-      this.configService.get<string>('SERVICETITAN_APP_KEY') || '';
+    const appKey = this.configService.get<string>('SERVICETITAN_APP_KEY') || '';
     const url = `https://api.servicetitan.io${endpoint}`;
 
     try {
@@ -86,8 +85,16 @@ export class ServiceTitanService {
 
       return response.data;
     } catch (error: any) {
-      this.logger.error(`ST API Error on ${endpoint}`, error);
-      throw new HttpException('ST API Error', HttpStatus.INTERNAL_SERVER_ERROR);
+      const errorMsg =
+        error.response?.data?.title || error.message || 'ST API Error';
+      const statusCode =
+        error.response?.status || HttpStatus.INTERNAL_SERVER_ERROR;
+
+      this.logger.error(
+        `ST API Error on ${endpoint}: ${errorMsg}`,
+        error.response?.data || error,
+      );
+      throw new HttpException(`ServiceTitan Error: ${errorMsg}`, statusCode);
     }
   }
 
@@ -95,33 +102,69 @@ export class ServiceTitanService {
   async createCustomer(
     name: string,
     email: string,
-  ): Promise<{ id: number } | null> {
-    try {
-      const tenantId =
-        this.configService.get<string>('SERVICETITAN_TENANT_ID') || '';
+    phone: string,
+    street: string,
+    city: string,
+    state: string,
+    zip: string,
+  ): Promise<{ customerId: number; locationId: number | null } | null> {
+    const tenantId =
+      this.configService.get<string>('SERVICETITAN_TENANT_ID') || '';
 
-      const payload = {
-        name: name,
-        type: 'Commercial', // You can change this to 'Residential' if needed
-        contacts: [
-          {
-            type: 'Email',
-            value: email,
-            memo: 'Created from Partner Portal',
+    const payload = {
+      name: name,
+      type: 'Commercial',
+      address: {
+        street: street,
+        city: city,
+        state: state,
+        zip: zip,
+        country: 'USA',
+      },
+      locations: [
+        {
+          name: 'Primary Location',
+          address: {
+            street: street,
+            city: city,
+            state: state,
+            zip: zip,
+            country: 'USA',
           },
-        ],
-      };
+          contacts: [
+            {
+              type: 'MobilePhone',
+              value: phone,
+              memo: 'Primary Phone',
+            },
+          ],
+        },
+      ],
+      contacts: [
+        {
+          type: 'Email',
+          value: email,
+          memo: 'Created from Partner Portal',
+        },
+        {
+          type: 'MobilePhone',
+          value: phone,
+          memo: 'Primary Phone',
+        },
+      ],
+    };
 
-      const response = await this.request<any>(
-        'POST',
-        `/crm/v2/tenant/${tenantId}/customers`,
-        payload,
-      );
+    const response = await this.request<any>(
+      'POST',
+      `/crm/v2/tenant/${tenantId}/customers`,
+      payload,
+    );
 
-      return { id: response.id };
-    } catch (error: any) {
-      this.logger.error('Could not create ST customer', error);
-      return null;
-    }
+    const locationId =
+      response.locations && response.locations.length > 0
+        ? response.locations[0].id
+        : null;
+
+    return { customerId: response.id, locationId: locationId };
   }
 }

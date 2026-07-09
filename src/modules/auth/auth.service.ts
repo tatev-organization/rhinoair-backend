@@ -49,30 +49,43 @@ export class AuthService {
 
     // Create customer in ST
     let stCustomerId: number | null = null;
+    let stLocationId: number | null = null;
     try {
       const stCustomer = await this.stService.createCustomer(
         registerDto.name,
         registerDto.email,
+        registerDto.phone,
+        registerDto.street,
+        registerDto.city,
+        registerDto.state,
+        registerDto.zip,
       );
-      if (stCustomer && stCustomer.id) {
-        stCustomerId = stCustomer.id;
+      if (stCustomer && stCustomer.customerId) {
+        stCustomerId = stCustomer.customerId;
+        stLocationId = stCustomer.locationId;
       }
     } catch (err) {
       this.logger.error(
         'Failed to create ST customer during registration',
         err,
       );
-      // We don't block registration if ST fails
+      // Block registration if ST fails so user sees the validation error
+      throw err;
     }
+
+    const fullAddress = `${registerDto.street}, ${registerDto.city}, ${registerDto.state} ${registerDto.zip}`;
 
     await this.prisma.company.create({
       data: {
         name: registerDto.name,
         email: registerDto.email,
+        phone: registerDto.phone,
+        address: fullAddress,
         password: hashedPassword,
         otp,
         isVerified: false,
         stCustomerId: stCustomerId ?? undefined,
+        stLocationId: stLocationId ?? undefined,
       } as any,
     });
 

@@ -123,7 +123,7 @@ export class ServiceTitanService {
       },
       locations: [
         {
-          name: 'Primary Location',
+          name: 'Primary1 Location',
           address: {
             street: street,
             city: city,
@@ -166,5 +166,84 @@ export class ServiceTitanService {
         : null;
 
     return { customerId: response.id, locationId: locationId };
+  }
+
+  // 4. Create Location for a Customer
+  async createLocation(
+    customerId: number,
+    street: string,
+    city: string = '',
+    state: string = '',
+    zip: string = '',
+  ): Promise<number> {
+    const tenantId =
+      this.configService.get<string>('SERVICETITAN_TENANT_ID') || '';
+    const payload = {
+      customerId,
+      name: street || 'Project Location',
+      address: {
+        street,
+        city,
+        state,
+        zip,
+        country: 'USA',
+      },
+    };
+
+    const response = await this.request<any>(
+      'POST',
+      `/crm/v2/tenant/${tenantId}/locations`,
+      payload,
+    );
+    return response.id;
+  }
+
+  // 5. Create Project
+  async createProject(
+    customerId: number,
+    locationId: number,
+    name: string,
+    summary: string,
+  ): Promise<number> {
+    const tenantId =
+      this.configService.get<string>('SERVICETITAN_TENANT_ID') || '';
+    const payload = {
+      customerId,
+      locationId,
+      name,
+      summary,
+    };
+
+    const response = await this.request<any>(
+      'POST',
+      `/jpm/v2/tenant/${tenantId}/projects`,
+      payload,
+    );
+    return response.id;
+  }
+
+  // 6. Create Estimate
+  async createEstimate(
+    projectId: number,
+    summary: string,
+    total: number,
+  ): Promise<number> {
+    const tenantId =
+      this.configService.get<string>('SERVICETITAN_TENANT_ID') || '';
+
+    // ST allows creating estimates without predefined items, or with custom items.
+    // For now, we will add the quote total into the summary, or as a manual item if needed.
+    const payload = {
+      projectId,
+      name: 'Partner Portal Quote',
+      summary: summary + `\n\nTotal Price: $${total.toFixed(2)}`,
+    };
+
+    const response = await this.request<any>(
+      'POST',
+      `/sales/v2/tenant/${tenantId}/estimates`,
+      payload,
+    );
+    return response.id;
   }
 }

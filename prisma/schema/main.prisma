@@ -8,6 +8,11 @@ datasource db {
 }
 
 
+enum Role {
+  SUPER_ADMIN
+  PARTNER
+}
+
 enum ProjectStatus {
   ACTIVE
   QUOTED

@@ -21,7 +21,7 @@ import {
   VerifyDto,
 } from './dto/auth.dto';
 import { Public } from '../../common/decorators/public.decorator';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { CurrentUser, JwtUser } from '../../common/decorators/current-user.decorator';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -38,7 +38,7 @@ export class AuthController {
 
   @Public()
   @Post('verify')
-  @ApiOperation({ summary: 'Verify company email with OTP' })
+  @ApiOperation({ summary: 'Verify email with OTP' })
   @ApiResponse({ status: 200, description: 'Email verified successfully.' })
   verify(@Body() verifyDto: VerifyDto) {
     return this.authService.verify(verifyDto);
@@ -46,11 +46,8 @@ export class AuthController {
 
   @Public()
   @Post('login')
-  @ApiOperation({ summary: 'Login with company email and password' })
-  @ApiResponse({
-    status: 200,
-    description: 'Returns access and refresh tokens.',
-  })
+  @ApiOperation({ summary: 'Login with email and password' })
+  @ApiResponse({ status: 200, description: 'Returns tokens and role.' })
   login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);
   }
@@ -81,9 +78,9 @@ export class AuthController {
 
   @ApiBearerAuth()
   @Get('me')
-  @ApiOperation({ summary: 'Get current logged-in partner profile' })
-  @ApiResponse({ status: 200, description: 'Current partner company profile.' })
-  getProfile(@CurrentUser() partner: { companyId: string }) {
-    return this.authService.getProfile(partner.companyId);
+  @ApiOperation({ summary: 'Get current logged-in user profile' })
+  @ApiResponse({ status: 200, description: 'Current user profile with company info.' })
+  getProfile(@CurrentUser() user: JwtUser) {
+    return this.authService.getProfile(user.userId);
   }
 }

@@ -16,7 +16,7 @@ import {
 import { QuotesService } from './quotes.service';
 import { CreateQuoteDto } from './dto/create-quote.dto';
 import { UpdateQuoteDto } from './dto/update-quote.dto';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { CurrentUser, JwtUser } from '../../common/decorators/current-user.decorator';
 
 @ApiTags('Quotes')
 @ApiBearerAuth()
@@ -27,29 +27,23 @@ export class QuotesController {
   @Post()
   @ApiOperation({ summary: 'Create a new quote' })
   @ApiResponse({ status: 201, description: 'Quote created successfully.' })
-  create(
-    @Body() createQuoteDto: CreateQuoteDto,
-    @CurrentUser() partner: { companyId: string },
-  ) {
-    return this.quotesService.create(createQuoteDto, partner);
+  create(@Body() createQuoteDto: CreateQuoteDto, @CurrentUser() user: JwtUser) {
+    return this.quotesService.create(createQuoteDto, user);
   }
 
   @Get()
   @ApiOperation({ summary: 'Get all quotes for the current partner' })
   @ApiResponse({ status: 200, description: 'List of quotes.' })
-  findAll(@CurrentUser() partner: { companyId: string }) {
-    return this.quotesService.findAll(partner);
+  findAll(@CurrentUser() user: JwtUser) {
+    return this.quotesService.findAll(user);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get a quote by ID' })
   @ApiResponse({ status: 200, description: 'Quote details.' })
   @ApiResponse({ status: 404, description: 'Quote not found.' })
-  findOne(
-    @Param('id') id: string,
-    @CurrentUser() partner: { companyId: string },
-  ) {
-    return this.quotesService.findOne(id, partner);
+  findOne(@Param('id') id: string, @CurrentUser() user: JwtUser) {
+    return this.quotesService.findOne(id, user);
   }
 
   @Patch(':id')
@@ -58,18 +52,15 @@ export class QuotesController {
   update(
     @Param('id') id: string,
     @Body() updateQuoteDto: UpdateQuoteDto,
-    @CurrentUser() partner: { companyId: string },
+    @CurrentUser() user: JwtUser,
   ) {
-    return this.quotesService.update(id, updateQuoteDto, partner);
+    return this.quotesService.update(id, updateQuoteDto, user);
   }
 
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a quote' })
   @ApiResponse({ status: 200, description: 'Quote deleted.' })
-  remove(
-    @Param('id') id: string,
-    @CurrentUser() partner: { companyId: string },
-  ) {
-    return this.quotesService.remove(id, partner);
+  remove(@Param('id') id: string, @CurrentUser() user: JwtUser) {
+    return this.quotesService.remove(id, user);
   }
 }

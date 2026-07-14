@@ -14,14 +14,19 @@ import { join } from 'path';
       useFactory: (config: ConfigService) => ({
         transport: {
           host: config.get<string>('MAIL_HOST') || process.env.MAIL_HOST,
-          port: config.get<number>('MAIL_PORT') || parseInt(process.env.MAIL_PORT || '587', 10),
+          port:
+            config.get<number>('MAIL_PORT') ||
+            parseInt(process.env.MAIL_PORT || '587', 10),
           auth: {
             user: config.get<string>('MAIL_USER') || process.env.MAIL_USER,
             pass: config.get<string>('MAIL_PASS') || process.env.MAIL_PASS,
           },
         },
         defaults: {
-          from: config.get<string>('MAIL_FROM') || process.env.MAIL_FROM || '"Rhino Air Portal" <noreply@rhinoair.com>',
+          from:
+            config.get<string>('MAIL_FROM') ||
+            process.env.MAIL_FROM ||
+            '"Rhino Air Portal" <noreply@rhinoair.com>',
         },
         template: {
           dir: join(__dirname, 'templates'),

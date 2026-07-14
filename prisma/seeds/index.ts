@@ -12,6 +12,10 @@ import {
 import { PrismaPg } from '@prisma/adapter-pg';
 import pg from 'pg';
 import * as bcrypt from 'bcrypt';
+import * as dotenv from 'dotenv';
+
+dotenv.config({ path: '.env.local' });
+dotenv.config({ path: '.env' });
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
@@ -24,6 +28,7 @@ async function main() {
   const seedPassword = process.env.SEED_PASSWORD || 'password123';
   const hashedPassword = await bcrypt.hash(seedPassword, 10);
 
+  // 1. Create Company (business profile)
   const company = await prisma.company.upsert({
     where: {
       companyId:
@@ -35,10 +40,6 @@ async function main() {
         process.env.SEED_COMPANY_ID || '00000000-0000-4000-8000-000000000001',
       name: 'Mid Construction Group',
       tier: 4,
-      email: partnerEmail,
-      password: hashedPassword,
-      isVerified: true,
-      phone: '(310) 555-0148',
       address: '9100 Wilshire Blvd, Beverly Hills, CA 90212',
       contactName: 'David Mirzakhanian',
       partnerSince: new Date('2024-01-01'),
@@ -48,6 +49,34 @@ async function main() {
       repRole: 'Project Manager',
       repPhone: '(818) 900-4007',
       repEmail: 'sam.yaghobi@rhinoair.com',
+    },
+  });
+
+  // 2. Create Partner User (auth entity linked to Company)
+  await prisma.user.upsert({
+    where: { email: partnerEmail },
+    update: {},
+    create: {
+      email: partnerEmail,
+      password: hashedPassword,
+      name: 'David Mirzakhanian',
+      phone: '(310) 555-0148',
+      role: 'PARTNER',
+      companyId: company.companyId,
+      isVerified: true,
+    },
+  });
+
+  // 3. Create Admin User
+  await prisma.user.upsert({
+    where: { email: 'admin@rhinoair.com' },
+    update: {},
+    create: {
+      email: 'admin@rhinoair.com',
+      password: hashedPassword,
+      name: 'Sam Yaghobi',
+      role: 'SUPER_ADMIN',
+      isVerified: true,
     },
   });
 

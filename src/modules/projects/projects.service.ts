@@ -6,18 +6,15 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
-
-export interface AuthPartner {
-  companyId: string;
-}
+import { JwtUser } from '../../common/decorators/current-user.decorator';
 
 @Injectable()
 export class ProjectsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  findAll(partner: AuthPartner) {
+  findAll(user: JwtUser) {
     return this.prisma.project.findMany({
-      where: { companyId: partner.companyId },
+      where: { companyId: user.companyId! },
       orderBy: { createdAt: 'desc' },
       include: {
         company: true,
@@ -34,11 +31,11 @@ export class ProjectsService {
     });
   }
 
-  async findOne(projectId: string, partner: AuthPartner) {
+  async findOne(projectId: string, user: JwtUser) {
     const project = await this.prisma.project.findFirst({
       where: {
         projectId,
-        companyId: partner.companyId,
+        companyId: user.companyId!,
       },
       include: {
         company: true,
@@ -66,23 +63,29 @@ export class ProjectsService {
     return project;
   }
 
-  create(createProjectDto: CreateProjectDto, partner: AuthPartner) {
+  create(createProjectDto: CreateProjectDto, user: JwtUser) {
     const { companyId: _ignoredCompanyId, ...projectData } = createProjectDto;
 
     return this.prisma.project.create({
       data: {
         ...projectData,
-        companyId: partner.companyId,
+        companyId: user.companyId!,
       } as any,
     });
   }
 
-  async update(projectId: string, updateProjectDto: UpdateProjectDto, partner: AuthPartner) {
-    await this.findOne(projectId, partner);
+  async update(
+    projectId: string,
+    updateProjectDto: UpdateProjectDto,
+    user: JwtUser,
+  ) {
+    await this.findOne(projectId, user);
     const { companyId: requestedCompanyId, ...projectData } = updateProjectDto;
 
-    if (requestedCompanyId && requestedCompanyId !== partner.companyId) {
-      throw new ForbiddenException('Partners cannot move projects to other companies');
+    if (requestedCompanyId && requestedCompanyId !== user.companyId) {
+      throw new ForbiddenException(
+        'Partners cannot move projects to other companies',
+      );
     }
 
     return this.prisma.project.update({
@@ -91,8 +94,8 @@ export class ProjectsService {
     });
   }
 
-  async remove(projectId: string, partner: AuthPartner) {
-    await this.findOne(projectId, partner);
+  async remove(projectId: string, user: JwtUser) {
+    await this.findOne(projectId, user);
 
     return this.prisma.project.delete({
       where: { projectId },

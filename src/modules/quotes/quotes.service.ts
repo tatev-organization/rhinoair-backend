@@ -8,10 +8,7 @@ import { CreateQuoteDto } from './dto/create-quote.dto';
 import { UpdateQuoteDto } from './dto/update-quote.dto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ServiceTitanService } from '../service-titan/service-titan.service';
-
-export interface AuthPartner {
-  companyId: string;
-}
+import { JwtUser } from '../../common/decorators/current-user.decorator';
 
 @Injectable()
 export class QuotesService {
@@ -22,23 +19,19 @@ export class QuotesService {
     private readonly serviceTitanService: ServiceTitanService,
   ) {}
 
-  async create(createQuoteDto: CreateQuoteDto, partner: AuthPartner) {
+  async create(createQuoteDto: CreateQuoteDto, user: JwtUser) {
     const quoteNumber = `RA-${Math.floor(100000 + Math.random() * 900000)}`;
 
     const quote = await this.prisma.quote.create({
       data: {
         ...createQuoteDto,
         quoteNumber,
-        companyId: partner.companyId,
+        companyId: user.companyId!,
       },
     });
 
     // Run ServiceTitan Sync asynchronously to not block the quote creation response
-    this.syncQuoteToServiceTitan(
-      quote,
-      createQuoteDto,
-      partner.companyId,
-    ).catch((err) => {
+    this.syncQuoteToServiceTitan(quote, createQuoteDto, user).catch((err) => {
       this.logger.error(`Failed to sync quote ${quoteNumber} to ST`, err);
     });
 
@@ -48,49 +41,32 @@ export class QuotesService {
   private async syncQuoteToServiceTitan(
     quote: any,
     createQuoteDto: CreateQuoteDto,
-    companyId: string,
+    user: JwtUser,
   ) {
     this.logger.log(`Starting ST sync for Quote ${quote.quoteNumber}...`);
 
-    // 1. Fetch Company (Partner) details
+    const companyId = user.companyId!;
+
+    // 1. Fetch Company details
     const company = await this.prisma.company.findUnique({
       where: { companyId },
+      include: { stCustomers: true },
     });
 
     if (!company) {
       throw new Error(`Company not found for id ${companyId}`);
     }
 
-    let customerId = company.stCustomerId;
-
-    // 2. Create ST Customer if it doesn't exist
-    if (!customerId) {
-      this.logger.log(`Creating ST Customer for ${company.name}`);
-      const stCust = await this.serviceTitanService.createCustomer(
-        company.name,
-        company.email,
-        company.phone || '0000000000',
-        company.address || 'Unknown Address',
-        '', // city
-        '', // state
-        '', // zip
-      );
-      if (stCust) {
-        customerId = stCust.customerId;
-        await this.prisma.company.update({
-          where: { companyId },
-          data: { stCustomerId: customerId },
-        });
-      }
+    // 2. Get ST Customer
+    if (company.stCustomers.length === 0) {
+      throw new Error('Sync failed: No ServiceTitan Customer ID is mapped to this partner. An admin must assign it first.');
     }
 
-    if (!customerId) {
-      throw new Error('Failed to create/find ST Customer');
-    }
+    // Use the first linked ST customer (for now, or we can add logic to select a specific one)
+    const stCustomerId = Number(company.stCustomers[0].serviceTitanCustomerId);
 
     // 3. Create ST Location for this project address
     const address = createQuoteDto.projectAddress || 'Unknown Project Address';
-
     let street = address;
     let city = 'Unknown';
     let state = 'CA';
@@ -111,7 +87,7 @@ export class QuotesService {
 
     this.logger.log(`Creating ST Location for address: ${address}`);
     const locationId = await this.serviceTitanService.createLocation(
-      customerId,
+      stCustomerId,
       street,
       city,
       state,
@@ -124,7 +100,7 @@ export class QuotesService {
     const projectSummary = `Scope: ${createQuoteDto.scope || 'N/A'}\nTier: ${createQuoteDto.tierLabel || 'N/A'}`;
 
     const projectId = await this.serviceTitanService.createProject(
-      customerId,
+      stCustomerId,
       locationId,
       projectName,
       projectSummary,
@@ -151,15 +127,15 @@ export class QuotesService {
     this.logger.log(`Successfully synced Quote ${quote.quoteNumber} to ST!`);
   }
 
-  async findAll(partner: AuthPartner) {
+  async findAll(user: JwtUser) {
     return this.prisma.quote.findMany({
-      where: { companyId: partner.companyId },
+      where: { companyId: user.companyId! },
       include: { project: true },
       orderBy: { createdAt: 'desc' },
     });
   }
 
-  async findOne(id: string, partner: AuthPartner) {
+  async findOne(id: string, user: JwtUser) {
     const quote = await this.prisma.quote.findUnique({
       where: { quoteId: id },
       include: { project: true },
@@ -169,27 +145,23 @@ export class QuotesService {
       throw new NotFoundException(`Quote with ID ${id} not found`);
     }
 
-    if (quote.companyId !== partner.companyId) {
+    if (quote.companyId !== user.companyId) {
       throw new UnauthorizedException('You do not have access to this quote');
     }
 
     return quote;
   }
 
-  async update(
-    id: string,
-    updateQuoteDto: UpdateQuoteDto,
-    partner: AuthPartner,
-  ) {
-    await this.findOne(id, partner);
+  async update(id: string, updateQuoteDto: UpdateQuoteDto, user: JwtUser) {
+    await this.findOne(id, user);
     return this.prisma.quote.update({
       where: { quoteId: id },
       data: updateQuoteDto,
     });
   }
 
-  async remove(id: string, partner: AuthPartner) {
-    await this.findOne(id, partner);
+  async remove(id: string, user: JwtUser) {
+    await this.findOne(id, user);
     return this.prisma.quote.delete({
       where: { quoteId: id },
     });

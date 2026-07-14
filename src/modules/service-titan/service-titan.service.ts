@@ -97,8 +97,22 @@ export class ServiceTitanService {
       throw new HttpException(`ServiceTitan Error: ${errorMsg}`, statusCode);
     }
   }
+  // 3. Get All Customers
+  async getCustomers(): Promise<any[]> {
+    const tenantId = this.configService.get<string>('SERVICETITAN_TENANT_ID') || '';
+    try {
+      const response = await this.request<any>(
+        'GET',
+        `/crm/v2/tenant/${tenantId}/customers`,
+      );
+      return response.data || [];
+    } catch (error) {
+      this.logger.error('Failed to fetch customers from ST', error);
+      return [];
+    }
+  }
 
-  // 3. Create Customer
+  // 4. Create Customer
   async createCustomer(
     name: string,
     email: string,

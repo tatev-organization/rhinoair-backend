@@ -99,7 +99,8 @@ export class ServiceTitanService {
   }
   // 3. Get All Customers
   async getCustomers(): Promise<any[]> {
-    const tenantId = this.configService.get<string>('SERVICETITAN_TENANT_ID') || '';
+    const tenantId =
+      this.configService.get<string>('SERVICETITAN_TENANT_ID') || '';
     try {
       const response = await this.request<any>(
         'GET',
@@ -108,6 +109,27 @@ export class ServiceTitanService {
       return response.data || [];
     } catch (error) {
       this.logger.error('Failed to fetch customers from ST', error);
+      return [];
+    }
+  }
+
+  // Get Jobs for a specific Customer
+  async getJobsByCustomerId(customerId: string): Promise<any[]> {
+    const tenantId =
+      this.configService.get<string>('SERVICETITAN_TENANT_ID') || '';
+    try {
+      // In ServiceTitan JPM v2, we filter jobs by customerId
+      const response = await this.request<any>(
+        'GET',
+        `/jpm/v2/tenant/${tenantId}/jobs?customerId=${customerId}`,
+      );
+      // ST API typically wraps arrays in a 'data' property
+      return response.data || [];
+    } catch (error) {
+      this.logger.error(
+        `Failed to fetch jobs for customer ${customerId} from ST`,
+        error,
+      );
       return [];
     }
   }
@@ -259,5 +281,44 @@ export class ServiceTitanService {
       payload,
     );
     return response.id;
+  }
+
+  // 7. Get Location details
+  async getLocationById(locationId: string): Promise<any> {
+    const tenantId =
+      this.configService.get<string>('SERVICETITAN_TENANT_ID') || '';
+    try {
+      const response = await this.request<any>(
+        'GET',
+        `/crm/v2/tenant/${tenantId}/locations/${locationId}`,
+      );
+      return response;
+    } catch (error) {
+      this.logger.error(
+        `Failed to fetch location ${locationId} from ST`,
+        error,
+      );
+      return null;
+    }
+  }
+
+  // 8. Get Invoices for a Job
+  async getInvoicesByIds(invoiceIds: string): Promise<any[]> {
+    if (!invoiceIds) return [];
+    const tenantId =
+      this.configService.get<string>('SERVICETITAN_TENANT_ID') || '';
+    try {
+      const response = await this.request<any>(
+        'GET',
+        `/accounting/v2/tenant/${tenantId}/invoices?ids=${invoiceIds}`,
+      );
+      return response.data || [];
+    } catch (error) {
+      this.logger.error(
+        `Failed to fetch invoices ${invoiceIds} from ST`,
+        error,
+      );
+      return [];
+    }
   }
 }

@@ -21,8 +21,7 @@ export class ProjectsService {
     // 1. Sync projects for the company first
     await this.syncProjectsForCompany(user.companyId!);
 
-    // 2. Return the updated local DB list
-    return this.prisma.project.findMany({
+    const projects = await this.prisma.project.findMany({
       where: { companyId: user.companyId! },
       orderBy: { createdAt: 'desc' },
       include: {
@@ -38,6 +37,23 @@ export class ProjectsService {
         },
       },
     });
+
+    const quotes = await this.prisma.quote.findMany({
+      where: { companyId: user.companyId!, projectId: null },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const formattedQuotes = quotes.map(q => ({
+      ...q,
+      id: q.quoteId,
+      projectId: q.quoteId,
+      name: q.projectAddress || q.builderName || 'New Quote',
+      systemSummary: q.scope,
+      status: 'QUOTED',
+      quotedPrice: q.total
+    }));
+
+    return [...projects, ...formattedQuotes];
   }
 
   // Sync projects from ST to local DB for all mapped customers of a company
@@ -68,6 +84,15 @@ export class ProjectsService {
           where: { serviceTitanProjectId: stJob.id.toString() }
         });
 
+        if (existing) {
+          if (existing.builderName !== mapping.serviceTitanName && mapping.serviceTitanName) {
+            await this.prisma.project.update({
+              where: { projectId: existing.projectId },
+              data: { builderName: mapping.serviceTitanName }
+            });
+          }
+        }
+
         if (!existing) {
           const jobName = stJob.jobType?.name 
             ? `${stJob.jobType.name} - #${stJob.number || stJob.id}` 
@@ -79,6 +104,7 @@ export class ProjectsService {
               name: jobName,
               address: stJob.location?.address?.street || null,
               serviceTitanProjectId: stJob.id.toString(),
+              builderName: mapping.serviceTitanName || 'Unknown Builder',
               status: 'ACTIVE',
               currentPhaseIndex: 0,
               currentPhase: 'Planning',

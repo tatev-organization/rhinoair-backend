@@ -39,4 +39,9 @@ export class CreateQuoteDto {
   @IsUUID()
   @IsOptional()
   projectId?: string;
+
+  @ApiPropertyOptional({ example: '123456' })
+  @IsString()
+  @IsOptional()
+  stCustomerId?: string;
 }

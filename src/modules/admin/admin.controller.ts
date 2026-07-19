@@ -68,6 +68,21 @@ export class AdminController {
     return this.adminService.getPartnerById(companyId);
   }
 
+  @Patch('partners/:companyId/tier')
+  @ApiOperation({ summary: 'Update a partner tier' })
+  updatePartnerTier(
+    @Param('companyId') companyId: string,
+    @Body('tier') tier: number,
+  ) {
+    return this.adminService.updatePartnerTier(companyId, tier);
+  }
+
+  @Get('partners/:companyId/quotes')
+  @ApiOperation({ summary: 'Get all quotes for a specific partner' })
+  getPartnerQuotes(@Param('companyId') companyId: string) {
+    return this.adminService.getPartnerQuotes(companyId);
+  }
+
   @Post('partners/:companyId/st-customers')
   @ApiOperation({ summary: 'Assign a ServiceTitan Customer ID to a Partner' })
   assignSTCustomer(

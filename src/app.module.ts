@@ -15,6 +15,7 @@ import { RolesGuard } from './common/guards/roles.guard';
 import { QuotesModule } from './modules/quotes/quotes.module';
 import { ServiceTitanModule } from './modules/service-titan/service-titan.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { PricingModule } from './modules/pricing/pricing.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { AdminModule } from './modules/admin/admin.module';
     QuotesModule,
     ServiceTitanModule,
     AdminModule,
+    PricingModule,
   ],
   controllers: [AppController],
   providers: [

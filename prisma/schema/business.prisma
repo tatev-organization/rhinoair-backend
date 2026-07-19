@@ -24,10 +24,17 @@ model User {
   @@index([email])
 }
 
+model PricingConfig {
+  id        String   @id @default("default_pricing")
+  data      Json
+  updatedAt DateTime @updatedAt
+}
+
 model CompanyServiceTitanCustomer {
   id                     String  @id @default(uuid())
   companyId              String
   serviceTitanCustomerId String
+  serviceTitanName       String?
   
   company                Company @relation(fields: [companyId], references: [companyId], onDelete: Cascade)
 
@@ -81,6 +88,7 @@ model Project {
   currentPhaseIndex Int?
   docsCount         Int           @default(0)
   serviceTitanProjectId String?
+  builderName       String?
   quotedPrice       Decimal?      @db.Decimal(12, 2)
   quoteNumber       String?
   contractTotal     Decimal       @default(0) @db.Decimal(12, 2)

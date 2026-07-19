@@ -117,11 +117,24 @@ export class AdminService {
       );
     }
 
+    // Fetch ST Customer details to save the name
+    let serviceTitanName = null;
+    try {
+      const allSTCustomers = await this.getSTCustomers();
+      const stCustomer = allSTCustomers.find((c: any) => c.id.toString() === serviceTitanCustomerId.toString());
+      if (stCustomer && stCustomer.name) {
+        serviceTitanName = stCustomer.name;
+      }
+    } catch (err) {
+      console.error('Failed to fetch ST customer details during assignment', err);
+    }
+
     // Create the mapping
     return this.prisma.companyServiceTitanCustomer.create({
       data: {
         companyId,
         serviceTitanCustomerId,
+        serviceTitanName,
       },
     });
   }
@@ -226,6 +239,29 @@ export class AdminService {
     return this.prisma.projectTask.update({
       where: { taskId },
       data: { status },
+    });
+  }
+
+  async updatePartnerTier(companyId: string, tier: number) {
+    const company = await this.prisma.company.findUnique({ where: { companyId } });
+    if (!company) throw new NotFoundException('Partner not found');
+
+    return this.prisma.company.update({
+      where: { companyId },
+      data: { tier },
+    });
+  }
+
+  async getPartnerQuotes(companyId: string) {
+    const company = await this.prisma.company.findUnique({ where: { companyId } });
+    if (!company) throw new NotFoundException('Partner not found');
+
+    return this.prisma.quote.findMany({
+      where: { companyId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        project: true,
+      },
     });
   }
 }

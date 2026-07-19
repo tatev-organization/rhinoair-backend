@@ -22,9 +22,11 @@ export class QuotesService {
   async create(createQuoteDto: CreateQuoteDto, user: JwtUser) {
     const quoteNumber = `RA-${Math.floor(100000 + Math.random() * 900000)}`;
 
+    const { stCustomerId, ...quoteData } = createQuoteDto;
+
     const quote = await this.prisma.quote.create({
       data: {
-        ...createQuoteDto,
+        ...quoteData,
         quoteNumber,
         companyId: user.companyId!,
       },
@@ -62,8 +64,16 @@ export class QuotesService {
       throw new Error('Sync failed: No ServiceTitan Customer ID is mapped to this partner. An admin must assign it first.');
     }
 
-    // Use the first linked ST customer (for now, or we can add logic to select a specific one)
-    const stCustomerId = Number(company.stCustomers[0].serviceTitanCustomerId);
+    let stCustomerId: number;
+    if (createQuoteDto.stCustomerId) {
+      const selected = company.stCustomers.find(c => c.serviceTitanCustomerId === createQuoteDto.stCustomerId);
+      if (!selected) {
+         throw new Error(`Sync failed: Selected ST Customer ID ${createQuoteDto.stCustomerId} is not mapped to this company.`);
+      }
+      stCustomerId = Number(selected.serviceTitanCustomerId);
+    } else {
+      stCustomerId = Number(company.stCustomers[0].serviceTitanCustomerId);
+    }
 
     // 3. Create ST Location for this project address
     const address = createQuoteDto.projectAddress || 'Unknown Project Address';

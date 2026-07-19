@@ -13,6 +13,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import pg from 'pg';
 import * as bcrypt from 'bcrypt';
 import * as dotenv from 'dotenv';
+import { pricingConfig } from './pricingConfig';
 
 dotenv.config({ path: '.env.local' });
 dotenv.config({ path: '.env' });
@@ -80,23 +81,36 @@ async function main() {
     },
   });
 
-  const project = await prisma.project.create({
-    data: {
-      companyId: company.companyId,
-      name: '1036 Norman Pl',
-      address: '1036 Norman Pl, Los Angeles, CA',
-      status: ProjectStatus.ACTIVE,
-      systemSummary: 'Daikin VRV · 5-Ton',
-      currentPhase: 'Rough-in',
-      phaseClass: 'roughin',
-      currentPhaseIndex: 1,
-      docsCount: 9,
-      contractTotal: 23650,
-      paidAmount: 10600,
-      startDate: new Date('2026-06-10'),
-      roughInspectionAt: new Date('2026-06-23'),
-    },
+  // 4. Seed PricingConfig
+  await prisma.pricingConfig.upsert({
+    where: { id: 'default_pricing' },
+    update: { data: pricingConfig as any },
+    create: { id: 'default_pricing', data: pricingConfig as any },
   });
+
+  let project = await prisma.project.findFirst({
+    where: { companyId: company.companyId, name: '1036 Norman Pl' },
+  });
+
+  if (!project) {
+    project = await prisma.project.create({
+      data: {
+        companyId: company.companyId,
+        name: '1036 Norman Pl',
+        address: '1036 Norman Pl, Los Angeles, CA',
+        status: ProjectStatus.ACTIVE,
+        systemSummary: 'Daikin VRV · 5-Ton',
+        currentPhase: 'Rough-in',
+        phaseClass: 'roughin',
+        currentPhaseIndex: 1,
+        docsCount: 9,
+        contractTotal: 23650,
+        paidAmount: 10600,
+        startDate: new Date('2026-06-10'),
+        roughInspectionAt: new Date('2026-06-23'),
+      },
+    });
+  }
 
   await prisma.projectPhase.create({
     data: {
@@ -218,8 +232,10 @@ async function main() {
     },
   });
 
-  await prisma.invoice.create({
-    data: {
+  await prisma.invoice.upsert({
+    where: { companyId_invoiceNumber: { companyId: company.companyId, invoiceNumber: 'INV-2068' } },
+    update: {},
+    create: {
       companyId: company.companyId,
       projectId: project.projectId,
       invoiceNumber: 'INV-2068',
@@ -231,8 +247,10 @@ async function main() {
     },
   });
 
-  await prisma.invoice.create({
-    data: {
+  await prisma.invoice.upsert({
+    where: { companyId_invoiceNumber: { companyId: company.companyId, invoiceNumber: 'SCHED-1036-FINAL' } },
+    update: {},
+    create: {
       companyId: company.companyId,
       projectId: project.projectId,
       invoiceNumber: 'SCHED-1036-FINAL',

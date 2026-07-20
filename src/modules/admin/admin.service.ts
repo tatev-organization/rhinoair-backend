@@ -5,12 +5,17 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ServiceTitanService } from '../service-titan/service-titan.service';
+import { ProjectsService } from '../projects/projects.service';
+import { StorageService } from '../storage/storage.service';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class AdminService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly stService: ServiceTitanService,
+    private readonly projectsService: ProjectsService,
+    private readonly storageService: StorageService,
   ) {}
 
   async getSTCustomers() {
@@ -130,13 +135,21 @@ export class AdminService {
     }
 
     // Create the mapping
-    return this.prisma.companyServiceTitanCustomer.create({
+    const mapping = await this.prisma.companyServiceTitanCustomer.create({
       data: {
         companyId,
         serviceTitanCustomerId,
         serviceTitanName,
       },
     });
+
+    // Automatically trigger sync for the assigned customer
+    // so the admin panel and partner portal immediately reflect the changes!
+    this.projectsService.syncProjectsForCompany(companyId).catch(err => {
+      console.error(`Error auto-syncing ST customer ${serviceTitanCustomerId} for company ${companyId}:`, err);
+    });
+
+    return mapping;
   }
 
   async removeSTCustomer(companyId: string, serviceTitanCustomerId: string) {
@@ -262,6 +275,58 @@ export class AdminService {
       include: {
         project: true,
       },
+    });
+  }
+
+  // --- Document & Photo Uploads ---
+  async uploadProjectDocument(projectId: string, file: Express.Multer.File) {
+    const project = await this.prisma.project.findUnique({ where: { projectId: projectId } });
+    if (!project) throw new NotFoundException('Project not found');
+
+    const result = await this.storageService.uploadFile(file.buffer, `rhino-air/projects/${projectId}/documents`, 'auto');
+
+    return this.prisma.document.create({
+      data: {
+        companyId: project.companyId,
+        projectId: project.projectId,
+        name: file.originalname,
+        fileUrl: result.secure_url,
+        fileKey: result.public_id,
+        mimeType: file.mimetype,
+        sizeBytes: file.size,
+        uploadedBy: 'ADMIN',
+      },
+    });
+  }
+
+  async uploadProjectPhoto(projectId: string, file: Express.Multer.File) {
+    const project = await this.prisma.project.findUnique({ where: { projectId: projectId } });
+    if (!project) throw new NotFoundException('Project not found');
+
+    const result = await this.storageService.uploadFile(file.buffer, `rhino-air/projects/${projectId}/photos`, 'image');
+
+    return this.prisma.photo.create({
+      data: {
+        companyId: project.companyId,
+        projectId: project.projectId,
+        title: file.originalname,
+        imageUrl: result.secure_url,
+        imageKey: result.public_id,
+      },
+    });
+  }
+
+  async getProjectDocuments(projectId: string) {
+    return this.prisma.document.findMany({
+      where: { projectId: projectId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async getProjectPhotos(projectId: string) {
+    return this.prisma.photo.findMany({
+      where: { projectId: projectId },
+      orderBy: { createdAt: 'desc' },
     });
   }
 }

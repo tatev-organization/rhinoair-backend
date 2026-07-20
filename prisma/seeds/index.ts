@@ -233,7 +233,12 @@ async function main() {
   });
 
   await prisma.invoice.upsert({
-    where: { companyId_invoiceNumber: { companyId: company.companyId, invoiceNumber: 'INV-2068' } },
+    where: {
+      companyId_invoiceNumber: {
+        companyId: company.companyId,
+        invoiceNumber: 'INV-2068',
+      },
+    },
     update: {},
     create: {
       companyId: company.companyId,
@@ -248,7 +253,12 @@ async function main() {
   });
 
   await prisma.invoice.upsert({
-    where: { companyId_invoiceNumber: { companyId: company.companyId, invoiceNumber: 'SCHED-1036-FINAL' } },
+    where: {
+      companyId_invoiceNumber: {
+        companyId: company.companyId,
+        invoiceNumber: 'SCHED-1036-FINAL',
+      },
+    },
     update: {},
     create: {
       companyId: company.companyId,

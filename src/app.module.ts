@@ -16,6 +16,9 @@ import { QuotesModule } from './modules/quotes/quotes.module';
 import { ServiceTitanModule } from './modules/service-titan/service-titan.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { PricingModule } from './modules/pricing/pricing.module';
+import { InvoicesModule } from './modules/invoices/invoices.module';
+import { WebhooksModule } from './modules/webhooks/webhooks.module';
+import { StorageModule } from './modules/storage/storage.module';
 
 @Module({
   imports: [
@@ -32,6 +35,9 @@ import { PricingModule } from './modules/pricing/pricing.module';
     ServiceTitanModule,
     AdminModule,
     PricingModule,
+    InvoicesModule,
+    WebhooksModule,
+    StorageModule,
   ],
   controllers: [AppController],
   providers: [

@@ -7,8 +7,13 @@ import {
   Body,
   UseGuards,
   Patch,
+  UseInterceptors,
+  UploadedFile,
+  ParseFilePipe,
+  MaxFileSizeValidator,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -143,5 +148,72 @@ export class AdminController {
     @Body('status') status: any,
   ) {
     return this.adminService.updateTaskStatus(projectId, taskId, status);
+  }
+
+  // --- Document & Photo Uploads (Admin only) ---
+  @Post('projects/:projectId/documents')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload a document to a project' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  async uploadProjectDocument(
+    @Param('projectId') projectId: string,
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [new MaxFileSizeValidator({ maxSize: 25 * 1024 * 1024 })], // 25MB max
+      }),
+    )
+    file: Express.Multer.File,
+  ) {
+    return this.adminService.uploadProjectDocument(projectId, file);
+  }
+
+  @Post('projects/:projectId/photos')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload a photo to a project' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  async uploadProjectPhoto(
+    @Param('projectId') projectId: string,
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [new MaxFileSizeValidator({ maxSize: 25 * 1024 * 1024 })], // 25MB max
+      }),
+    )
+    file: Express.Multer.File,
+  ) {
+    return this.adminService.uploadProjectPhoto(projectId, file);
+  }
+
+  @Get('projects/:projectId/documents')
+  @ApiOperation({ summary: 'Get all documents for a project' })
+  async getProjectDocuments(@Param('projectId') projectId: string) {
+    return this.adminService.getProjectDocuments(projectId);
+  }
+
+  @Get('projects/:projectId/photos')
+  @ApiOperation({ summary: 'Get all photos for a project' })
+  async getProjectPhotos(@Param('projectId') projectId: string) {
+    return this.adminService.getProjectPhotos(projectId);
   }
 }

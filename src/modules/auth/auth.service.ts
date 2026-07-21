@@ -64,15 +64,15 @@ export class AuthService {
         role: 'PARTNER',
         companyId: company.companyId,
         otp,
-        isVerified: false,
+        isVerified: true, // Bypass verification
       },
     });
 
-    await this.mailService.sendVerificationCode(registerDto.email, otp);
+    // await this.mailService.sendVerificationCode(registerDto.email, otp);
 
     return {
       message:
-        'Registration successful. Please check your email for the verification code.',
+        'Registration successful. You can now login.',
     };
   }
 
@@ -112,9 +112,9 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    if (!user.isVerified) {
-      throw new UnauthorizedException('Please verify your email first.');
-    }
+    // if (!user.isVerified) {
+    //   throw new UnauthorizedException('Please verify your email first.');
+    // }
 
     const isPasswordValid = await bcrypt.compare(
       loginDto.password,

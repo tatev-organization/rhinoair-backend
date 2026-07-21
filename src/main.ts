@@ -17,7 +17,14 @@ async function bootstrap() {
 
   // Global settings
   app.setGlobalPrefix(apiPrefix);
-  app.enableCors();
+  app.enableCors({
+    origin: [
+      'http://localhost:3000',
+      'https://rhino-air-portal-next-omega.vercel.app',
+      configService.get<string>('app.frontendDomain') || '*',
+    ],
+    credentials: true,
+  });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   app.useGlobalFilters(new GlobalExceptionFilter());
   app.useGlobalInterceptors(new TransformInterceptor());

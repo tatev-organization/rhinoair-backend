@@ -10,6 +10,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { ServiceTitanService } from '../service-titan/service-titan.service';
 import { ProjectsService } from '../projects/projects.service';
 import { JwtUser } from '../../common/decorators/current-user.decorator';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class QuotesService {
@@ -19,6 +20,7 @@ export class QuotesService {
     private readonly prisma: PrismaService,
     private readonly serviceTitanService: ServiceTitanService,
     private readonly projectsService: ProjectsService,
+    private readonly mailService: MailService,
   ) {}
 
   async create(createQuoteDto: CreateQuoteDto, user: JwtUser) {
@@ -37,6 +39,15 @@ export class QuotesService {
     // Run ServiceTitan Sync asynchronously to not block the quote creation response
     this.syncQuoteToServiceTitan(quote, createQuoteDto, user).catch((err) => {
       this.logger.error(`Failed to sync quote ${quoteNumber} to ST`, err);
+    });
+
+    // Send email notification to office
+    const notificationEmail = process.env.QUOTE_NOTIFICATION_EMAIL || 'info@rhinoair.com';
+    this.mailService.sendQuoteSubmittedNotification(notificationEmail, {
+      ...createQuoteDto,
+      quoteNumber,
+    }).catch((err) => {
+      this.logger.error(`Failed to send email for quote ${quoteNumber}`, err);
     });
 
     return quote;

@@ -40,17 +40,18 @@ export class ProjectsService {
 
     const quotes = await this.prisma.quote.findMany({
       where: { companyId: user.companyId!, projectId: null },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
     });
 
-    const formattedQuotes = quotes.map(q => ({
+    const formattedQuotes = quotes.map((q) => ({
       ...q,
       id: q.quoteId,
       projectId: q.quoteId,
       name: q.projectAddress || q.builderName || 'New Quote',
       systemSummary: q.scope,
       status: 'QUOTED',
-      quotedPrice: q.total
+      quotedPrice: q.total,
+      serviceTitanProjectId: q.stProjectId,
     }));
 
     return [...projects, ...formattedQuotes];
@@ -70,40 +71,44 @@ export class ProjectsService {
 
     const stProjectIdsToUpsert: string[] = [];
 
-    // Loop through each mapped ST customer and fetch jobs
+    // Loop through each mapped ST customer and fetch projects
     for (const mapping of company.stCustomers) {
-      const stJobs = await this.stService.getJobsByCustomerId(mapping.serviceTitanCustomerId);
-      
-      for (const stJob of stJobs) {
-        if (!stJob || !stJob.id) continue;
-        
-        stProjectIdsToUpsert.push(stJob.id.toString());
+      const stProjects = await this.stService.getProjectsByCustomerId(
+        mapping.serviceTitanCustomerId,
+      );
+
+      for (const stProject of stProjects) {
+        if (!stProject || !stProject.id) continue;
+
+        stProjectIdsToUpsert.push(stProject.id.toString());
 
         // Upsert into local DB. We only create if it doesn't exist to preserve admin's phase/status
         const existing = await this.prisma.project.findFirst({
-          where: { serviceTitanProjectId: stJob.id.toString() }
+          where: { serviceTitanProjectId: stProject.id.toString() },
         });
 
         if (existing) {
-          if (existing.builderName !== mapping.serviceTitanName && mapping.serviceTitanName) {
+          if (
+            existing.builderName !== mapping.serviceTitanName &&
+            mapping.serviceTitanName
+          ) {
             await this.prisma.project.update({
               where: { projectId: existing.projectId },
-              data: { builderName: mapping.serviceTitanName }
+              data: { builderName: mapping.serviceTitanName },
             });
           }
         }
 
         if (!existing) {
-          const jobName = stJob.jobType?.name 
-            ? `${stJob.jobType.name} - #${stJob.number || stJob.id}` 
-            : `ST Job #${stJob.number || stJob.id}`;
+          const projectName =
+            stProject.name || `ST Project #${stProject.number || stProject.id}`;
 
-          await this.prisma.project.create({
+          const newProject = await this.prisma.project.create({
             data: {
               companyId,
-              name: jobName,
-              address: stJob.location?.address?.street || null,
-              serviceTitanProjectId: stJob.id.toString(),
+              name: projectName,
+              address: null, // Since ST Project doesn't necessarily have a deep location object in the summary view, or we can leave it null until we fetch location details if needed
+              serviceTitanProjectId: stProject.id.toString(),
               builderName: mapping.serviceTitanName || 'Unknown Builder',
               status: 'ACTIVE',
               currentPhaseIndex: 0,
@@ -116,13 +121,23 @@ export class ProjectsService {
                     status: 'CURRENT',
                     sortOrder: 0,
                     startDate: new Date(),
-                    endDate: new Date(new Date().setDate(new Date().getDate() + 7)),
+                    endDate: new Date(
+                      new Date().setDate(new Date().getDate() + 7),
+                    ),
                     tasks: {
                       create: [
-                        { name: 'Design & measuring', sortOrder: 0, status: 'NOT_STARTED' },
-                        { name: 'Equipment / materials preparing', sortOrder: 1, status: 'NOT_STARTED' },
-                      ]
-                    }
+                        {
+                          name: 'Design & measuring',
+                          sortOrder: 0,
+                          status: 'NOT_STARTED',
+                        },
+                        {
+                          name: 'Equipment / materials preparing',
+                          sortOrder: 1,
+                          status: 'NOT_STARTED',
+                        },
+                      ],
+                    },
                   },
                   {
                     name: 'Rough-in',
@@ -130,13 +145,34 @@ export class ProjectsService {
                     sortOrder: 1,
                     tasks: {
                       create: [
-                        { name: 'Indoor units installation', sortOrder: 0, status: 'NOT_STARTED' },
-                        { name: 'Ductwork rough-in (trunk & branch runs)', sortOrder: 1, status: 'NOT_STARTED' },
-                        { name: 'Line sets, drains & low voltage', sortOrder: 2, status: 'NOT_STARTED' },
-                        { name: 'Exhausts', sortOrder: 3, status: 'NOT_STARTED' },
-                        { name: 'Ready for rough inspection', sortOrder: 4, status: 'NOT_STARTED', isInspection: true },
-                      ]
-                    }
+                        {
+                          name: 'Indoor units installation',
+                          sortOrder: 0,
+                          status: 'NOT_STARTED',
+                        },
+                        {
+                          name: 'Ductwork rough-in (trunk & branch runs)',
+                          sortOrder: 1,
+                          status: 'NOT_STARTED',
+                        },
+                        {
+                          name: 'Line sets, drains & low voltage',
+                          sortOrder: 2,
+                          status: 'NOT_STARTED',
+                        },
+                        {
+                          name: 'Exhausts',
+                          sortOrder: 3,
+                          status: 'NOT_STARTED',
+                        },
+                        {
+                          name: 'Ready for rough inspection',
+                          sortOrder: 4,
+                          status: 'NOT_STARTED',
+                          isInspection: true,
+                        },
+                      ],
+                    },
                   },
                   {
                     name: 'Finishing',
@@ -144,12 +180,28 @@ export class ProjectsService {
                     sortOrder: 2,
                     tasks: {
                       create: [
-                        { name: 'Outdoor units installation', sortOrder: 0, status: 'NOT_STARTED' },
-                        { name: 'Registers, grilles & thermostats', sortOrder: 1, status: 'NOT_STARTED' },
-                        { name: 'Electrical after disconnect box', sortOrder: 2, status: 'NOT_STARTED' },
-                        { name: 'Startup, refrigerant balancing & test', sortOrder: 3, status: 'NOT_STARTED' },
-                      ]
-                    }
+                        {
+                          name: 'Outdoor units installation',
+                          sortOrder: 0,
+                          status: 'NOT_STARTED',
+                        },
+                        {
+                          name: 'Registers, grilles & thermostats',
+                          sortOrder: 1,
+                          status: 'NOT_STARTED',
+                        },
+                        {
+                          name: 'Electrical after disconnect box',
+                          sortOrder: 2,
+                          status: 'NOT_STARTED',
+                        },
+                        {
+                          name: 'Startup, refrigerant balancing & test',
+                          sortOrder: 3,
+                          status: 'NOT_STARTED',
+                        },
+                      ],
+                    },
                   },
                   {
                     name: 'Final Inspection',
@@ -157,64 +209,94 @@ export class ProjectsService {
                     sortOrder: 3,
                     tasks: {
                       create: [
-                        { name: 'Ready for final inspection', sortOrder: 0, status: 'NOT_STARTED', isInspection: true },
-                      ]
-                    }
-                  }
-                ]
-              }
-            }
+                        {
+                          name: 'Ready for final inspection',
+                          sortOrder: 0,
+                          status: 'NOT_STARTED',
+                          isInspection: true,
+                        },
+                      ],
+                    },
+                  },
+                ],
+              },
+            },
+          });
+
+          // Link any orphaned quotes that belong to this newly created ST Project
+          await this.prisma.quote.updateMany({
+            where: { stProjectId: stProject.id.toString(), projectId: null },
+            data: { projectId: newProject.projectId },
           });
         }
 
-        // --- Sync Location and Invoices ---
+        // --- Sync Location ---
         const project = await this.prisma.project.findFirst({
-          where: { serviceTitanProjectId: stJob.id.toString() }
+          where: { serviceTitanProjectId: stProject.id.toString() },
         });
 
         if (project) {
           // Sync Location Address
-          if (stJob.locationId) {
-            const loc = await this.stService.getLocationById(stJob.locationId.toString());
+          if (stProject.locationId) {
+            const loc = await this.stService.getLocationById(
+              stProject.locationId.toString(),
+            );
             if (loc && loc.address) {
               const addr = loc.address;
-              const formattedAddress = [addr.street, addr.city, addr.state, addr.zip].filter(Boolean).join(', ');
+              const formattedAddress = [
+                addr.street,
+                addr.city,
+                addr.state,
+                addr.zip,
+              ]
+                .filter(Boolean)
+                .join(', ');
               await this.prisma.project.update({
                 where: { projectId: project.projectId },
-                data: { address: formattedAddress }
-              });
-            }
-          }
-
-          // Sync Invoices
-          if (stJob.invoiceId) {
-            const invoices = await this.stService.getInvoicesByIds(stJob.invoiceId.toString());
-            for (const inv of invoices) {
-              const isPaid = parseFloat(inv.balance || '0') === 0;
-              await this.prisma.invoice.upsert({
-                where: { 
-                  companyId_invoiceNumber: { companyId, invoiceNumber: inv.id.toString() } 
-                },
-                update: {
-                  status: isPaid ? 'PAID' : 'DUE',
-                  amount: parseFloat(inv.total || '0'),
-                  serviceTitanPayload: inv,
-                },
-                create: {
-                  companyId,
-                  projectId: project.projectId,
-                  serviceTitanInvoiceId: inv.id.toString(),
-                  invoiceNumber: inv.id.toString(),
-                  description: 'Job Invoice',
-                  status: isPaid ? 'PAID' : 'DUE',
-                  amount: parseFloat(inv.total || '0'),
-                  serviceTitanPayload: inv,
-                }
+                data: { address: formattedAddress },
               });
             }
           }
         }
+      }
 
+      // --- Sync Invoices ---
+      const invoices = await this.stService.getInvoicesByCustomerId(
+        mapping.serviceTitanCustomerId,
+      );
+      for (const inv of invoices) {
+        if (inv.projectId) {
+          const project = await this.prisma.project.findFirst({
+            where: { serviceTitanProjectId: inv.projectId.toString() },
+          });
+
+          if (project) {
+            const isPaid = parseFloat(inv.balance || '0') === 0;
+            await this.prisma.invoice.upsert({
+              where: {
+                companyId_invoiceNumber: {
+                  companyId,
+                  invoiceNumber: inv.id.toString(),
+                },
+              },
+              update: {
+                status: isPaid ? 'PAID' : 'DUE',
+                amount: parseFloat(inv.total || '0'),
+                serviceTitanPayload: inv,
+              },
+              create: {
+                companyId,
+                projectId: project.projectId,
+                serviceTitanInvoiceId: inv.id.toString(),
+                invoiceNumber: inv.id.toString(),
+                description: 'Project Invoice',
+                status: isPaid ? 'PAID' : 'DUE',
+                amount: parseFloat(inv.total || '0'),
+                serviceTitanPayload: inv,
+              },
+            });
+          }
+        }
       }
     }
   }

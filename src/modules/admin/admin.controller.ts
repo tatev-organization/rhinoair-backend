@@ -163,11 +163,15 @@ export class AdminController {
           type: 'string',
           format: 'binary',
         },
+        category: {
+          type: 'string',
+        },
       },
     },
   })
   async uploadProjectDocument(
     @Param('projectId') projectId: string,
+    @Body('category') category: string,
     @UploadedFile(
       new ParseFilePipe({
         validators: [new MaxFileSizeValidator({ maxSize: 25 * 1024 * 1024 })], // 25MB max
@@ -175,7 +179,7 @@ export class AdminController {
     )
     file: Express.Multer.File,
   ) {
-    return this.adminService.uploadProjectDocument(projectId, file);
+    return this.adminService.uploadProjectDocument(projectId, file, category);
   }
 
   @Post('projects/:projectId/photos')
@@ -190,11 +194,15 @@ export class AdminController {
           type: 'string',
           format: 'binary',
         },
+        phase: {
+          type: 'string',
+        },
       },
     },
   })
   async uploadProjectPhoto(
     @Param('projectId') projectId: string,
+    @Body('phase') phase: string,
     @UploadedFile(
       new ParseFilePipe({
         validators: [new MaxFileSizeValidator({ maxSize: 25 * 1024 * 1024 })], // 25MB max
@@ -202,7 +210,7 @@ export class AdminController {
     )
     file: Express.Multer.File,
   ) {
-    return this.adminService.uploadProjectPhoto(projectId, file);
+    return this.adminService.uploadProjectPhoto(projectId, file, phase);
   }
 
   @Get('projects/:projectId/documents')

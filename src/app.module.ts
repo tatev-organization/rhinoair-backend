@@ -19,6 +19,8 @@ import { PricingModule } from './modules/pricing/pricing.module';
 import { InvoicesModule } from './modules/invoices/invoices.module';
 import { WebhooksModule } from './modules/webhooks/webhooks.module';
 import { StorageModule } from './modules/storage/storage.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { DocumentsModule } from './modules/documents/documents.module';
 
 @Module({
   imports: [
@@ -38,6 +40,8 @@ import { StorageModule } from './modules/storage/storage.module';
     InvoicesModule,
     WebhooksModule,
     StorageModule,
+    DashboardModule,
+    DocumentsModule,
   ],
   controllers: [AppController],
   providers: [

@@ -134,6 +134,25 @@ export class ServiceTitanService {
     }
   }
 
+  // Get Projects for a specific Customer
+  async getProjectsByCustomerId(customerId: string): Promise<any[]> {
+    const tenantId =
+      this.configService.get<string>('SERVICETITAN_TENANT_ID') || '';
+    try {
+      const response = await this.request<any>(
+        'GET',
+        `/jpm/v2/tenant/${tenantId}/projects?customerId=${customerId}`,
+      );
+      return response.data || [];
+    } catch (error) {
+      this.logger.error(
+        `Failed to fetch projects for customer ${customerId} from ST`,
+        error,
+      );
+      return [];
+    }
+  }
+
   // 4. Create Customer
   async createCustomer(
     name: string,
@@ -283,6 +302,26 @@ export class ServiceTitanService {
     return response.id;
   }
 
+  async updateEstimate(
+    estimateId: number,
+    summary: string,
+    total: number,
+  ): Promise<void> {
+    const tenantId =
+      this.configService.get<string>('SERVICETITAN_TENANT_ID') || '';
+
+    const payload = {
+      name: 'Partner Portal Quote (Updated)',
+      summary: summary + `\n\nTotal Price: $${total.toFixed(2)}`,
+    };
+
+    await this.request<any>(
+      'PUT',
+      `/sales/v2/tenant/${tenantId}/estimates/${estimateId}`,
+      payload,
+    );
+  }
+
   // 7. Get Location details
   async getLocationById(locationId: string): Promise<any> {
     const tenantId =
@@ -316,6 +355,26 @@ export class ServiceTitanService {
     } catch (error) {
       this.logger.error(
         `Failed to fetch invoices ${invoiceIds} from ST`,
+        error,
+      );
+      return [];
+    }
+  }
+
+  // 9. Get Invoices by Customer ID
+  async getInvoicesByCustomerId(customerId: string): Promise<any[]> {
+    if (!customerId) return [];
+    const tenantId =
+      this.configService.get<string>('SERVICETITAN_TENANT_ID') || '';
+    try {
+      const response = await this.request<any>(
+        'GET',
+        `/accounting/v2/tenant/${tenantId}/invoices?customerId=${customerId}`,
+      );
+      return response.data || [];
+    } catch (error) {
+      this.logger.error(
+        `Failed to fetch invoices for customer ${customerId} from ST`,
         error,
       );
       return [];

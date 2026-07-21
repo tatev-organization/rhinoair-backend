@@ -279,7 +279,7 @@ export class AdminService {
   }
 
   // --- Document & Photo Uploads ---
-  async uploadProjectDocument(projectId: string, file: Express.Multer.File) {
+  async uploadProjectDocument(projectId: string, file: Express.Multer.File, category?: string) {
     const project = await this.prisma.project.findUnique({ where: { projectId: projectId } });
     if (!project) throw new NotFoundException('Project not found');
 
@@ -294,12 +294,13 @@ export class AdminService {
         fileKey: result.public_id,
         mimeType: file.mimetype,
         sizeBytes: file.size,
+        category: category || 'Shared Files',
         uploadedBy: 'ADMIN',
       },
     });
   }
 
-  async uploadProjectPhoto(projectId: string, file: Express.Multer.File) {
+  async uploadProjectPhoto(projectId: string, file: Express.Multer.File, phase?: string) {
     const project = await this.prisma.project.findUnique({ where: { projectId: projectId } });
     if (!project) throw new NotFoundException('Project not found');
 
@@ -312,6 +313,7 @@ export class AdminService {
         title: file.originalname,
         imageUrl: result.secure_url,
         imageKey: result.public_id,
+        phase: phase || 'Other',
       },
     });
   }

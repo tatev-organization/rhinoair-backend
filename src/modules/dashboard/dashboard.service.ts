@@ -19,7 +19,6 @@ export class DashboardService {
 
     const companyId = user.companyId;
 
-    // Fetch Company Info
     const company = await this.prisma.company.findUnique({
       where: { companyId },
     });

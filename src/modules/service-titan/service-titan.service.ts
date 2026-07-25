@@ -380,4 +380,113 @@ export class ServiceTitanService {
       return [];
     }
   }
+
+  // 10. Get Change Order Estimates by Project ID
+  async getChangeOrderEstimates(projectId: string): Promise<any[]> {
+    if (!projectId) return [];
+    const tenantId =
+      this.configService.get<string>('SERVICETITAN_TENANT_ID') || '';
+    try {
+      const response = await this.request<any>(
+        'GET',
+        `/sales/v2/tenant/${tenantId}/estimates?projectId=${projectId}`,
+      );
+
+      const estimates = response.data || [];
+      // Filter estimates that start with "Change Order"
+      return estimates.filter(
+        (est: any) =>
+          est.name && est.name.toLowerCase().startsWith('change order'),
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to fetch change order estimates for project ${projectId} from ST`,
+        error,
+      );
+      return [];
+    }
+  }
+
+  // 11. Sell Estimate (Approve Change Order)
+  async sellEstimate(
+    estimateId: string | number,
+    soldById: string | number,
+    memo?: string
+  ): Promise<void> {
+    const tenantId =
+      this.configService.get<string>('SERVICETITAN_TENANT_ID') || '';
+    
+    try {
+      // 1. Update summary for audit trail
+      if (memo) {
+        const currentEst = await this.request<any>(
+          'GET',
+          `/sales/v2/tenant/${tenantId}/estimates/${estimateId}`
+        );
+        const updatePayload = {
+          name: currentEst.name,
+          summary: currentEst.summary ? `${currentEst.summary}\n\n${memo}` : memo,
+        };
+        await this.request<any>(
+          'PUT',
+          `/sales/v2/tenant/${tenantId}/estimates/${estimateId}`,
+          updatePayload,
+        );
+      }
+
+      // 2. Sell Estimate
+      await this.request<any>(
+        'PUT',
+        `/sales/v2/tenant/${tenantId}/estimates/${estimateId}/sell`,
+        { soldBy: Number(soldById) }
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to sell estimate ${estimateId} in ST`,
+        error,
+      );
+      throw error;
+    }
+  }
+
+  // 12. Dismiss Estimate (Decline Change Order)
+  async dismissEstimate(
+    estimateId: string | number,
+    memo?: string
+  ): Promise<void> {
+    const tenantId =
+      this.configService.get<string>('SERVICETITAN_TENANT_ID') || '';
+    
+    try {
+      // 1. Update summary for audit trail
+      if (memo) {
+        const currentEst = await this.request<any>(
+          'GET',
+          `/sales/v2/tenant/${tenantId}/estimates/${estimateId}`
+        );
+        const updatePayload = {
+          name: currentEst.name,
+          summary: currentEst.summary ? `${currentEst.summary}\n\n${memo}` : memo,
+        };
+        await this.request<any>(
+          'PUT',
+          `/sales/v2/tenant/${tenantId}/estimates/${estimateId}`,
+          updatePayload,
+        );
+      }
+
+      // 2. Dismiss Estimate
+      await this.request<any>(
+        'PUT',
+        `/sales/v2/tenant/${tenantId}/estimates/${estimateId}/dismiss`,
+        {}
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to dismiss estimate ${estimateId} in ST`,
+        error,
+      );
+      throw error;
+    }
+  }
 }

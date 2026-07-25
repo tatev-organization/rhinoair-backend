@@ -300,8 +300,66 @@ export class ProjectsService {
       }
     }
   }
+  async syncChangeOrders(
+    projectId: string,
+    stProjectId: string,
+    companyId: string,
+  ) {
+    const estimates = await this.stService.getChangeOrderEstimates(stProjectId);
+
+    for (const est of estimates) {
+      if (!est.id) continue;
+
+      const stChangeOrderId = est.id.toString();
+
+      // Parse name: "Change Order #1 - Additional Electrical Work"
+      let number = `CO-${est.id}`;
+      let title = est.name;
+
+      const match = est.name.match(/Change Order #(\d+)\s*-\s*(.*)/i);
+      if (match) {
+        number = `CO-${match[1].padStart(2, '0')}`;
+        title = match[2];
+      }
+
+      // Parse status
+      let status: 'PENDING' | 'APPROVED' | 'DECLINED' = 'PENDING';
+      const stStatus = est.status?.name?.toLowerCase();
+      if (stStatus === 'sold') status = 'APPROVED';
+      else if (stStatus === 'dismissed') status = 'DECLINED';
+
+      // Ensure upsert uses existing record if we have it by ST ID to prevent duplicates
+      const existing = await this.prisma.changeOrder.findFirst({
+        where: { serviceTitanChangeOrderId: stChangeOrderId },
+      });
+
+      if (existing) {
+        await this.prisma.changeOrder.update({
+          where: { changeOrderId: existing.changeOrderId },
+          data: {
+            status,
+            title,
+            amount: parseFloat(est.subtotal || '0'),
+          },
+        });
+      } else {
+        await this.prisma.changeOrder.create({
+          data: {
+            companyId,
+            projectId,
+            number,
+            title,
+            amount: parseFloat(est.subtotal || '0'),
+            status,
+            serviceTitanChangeOrderId: stChangeOrderId,
+          },
+        });
+      }
+    }
+  }
+
   async findOne(projectId: string, user: JwtUser) {
-    const project = await this.prisma.project.findFirst({
+    let project = await this.prisma.project.findFirst({
       where: {
         projectId,
         companyId: user.companyId!,
@@ -319,7 +377,7 @@ export class ProjectsService {
         invoices: { orderBy: { createdAt: 'desc' } },
         documents: { orderBy: { createdAt: 'desc' } },
         photos: { orderBy: { createdAt: 'desc' } },
-        changeOrders: { orderBy: { createdAt: 'desc' } },
+        changeOrders: { orderBy: { createdAt: 'asc' } },
         quotes: { orderBy: { createdAt: 'desc' } },
         alerts: { orderBy: { createdAt: 'desc' } },
       },
@@ -327,6 +385,33 @@ export class ProjectsService {
 
     if (!project) {
       throw new NotFoundException(`Project with ID ${projectId} not found`);
+    }
+
+    if (project.serviceTitanProjectId) {
+      await this.syncChangeOrders(
+        project.projectId,
+        project.serviceTitanProjectId,
+        user.companyId!,
+      );
+      // Refetch change orders after sync
+      project = await this.prisma.project.findFirst({
+        where: { projectId },
+        include: {
+          company: true,
+          phases: {
+            orderBy: { sortOrder: 'asc' },
+            include: {
+              tasks: { orderBy: { sortOrder: 'asc' } },
+            },
+          },
+          invoices: { orderBy: { createdAt: 'desc' } },
+          documents: { orderBy: { createdAt: 'desc' } },
+          photos: { orderBy: { createdAt: 'desc' } },
+          changeOrders: { orderBy: { createdAt: 'asc' } },
+          quotes: { orderBy: { createdAt: 'desc' } },
+          alerts: { orderBy: { createdAt: 'desc' } },
+        },
+      });
     }
 
     return project;
@@ -368,6 +453,63 @@ export class ProjectsService {
 
     return this.prisma.project.delete({
       where: { projectId },
+    });
+  }
+
+  async decideChangeOrder(
+    projectId: string,
+    changeOrderId: string,
+    isApproved: boolean,
+    user: JwtUser,
+  ) {
+    const project = await this.findOne(projectId, user);
+
+    const changeOrder = await this.prisma.changeOrder.findFirst({
+      where: { changeOrderId, projectId },
+    });
+
+    if (!changeOrder) {
+      throw new NotFoundException(`Change order not found`);
+    }
+
+    if (!changeOrder.serviceTitanChangeOrderId) {
+      throw new ForbiddenException(`Cannot update change order without ST ID`);
+    }
+
+    const newStatus = isApproved ? 'APPROVED' : 'DECLINED';
+
+    // Hardcoded Partner Portal employee ID as per client request
+    const partnerPortalEmployeeId = 1055523; // From the sample JSON soldBy
+
+    // Fetch user details for audit trail
+    const dbUser = await this.prisma.user.findUnique({
+      where: { id: user.userId },
+    });
+
+    const userName = dbUser?.name || 'Partner';
+    const userEmail = dbUser?.email || 'Unknown';
+
+    // Memo with audit trail
+    const auditMemo = `${isApproved ? 'Approved' : 'Declined'} by: ${userName} (${userEmail}) via Portal at ${new Date().toISOString()}`;
+
+    // Update in ServiceTitan
+    if (isApproved) {
+      await this.stService.sellEstimate(
+        changeOrder.serviceTitanChangeOrderId,
+        partnerPortalEmployeeId,
+        auditMemo,
+      );
+    } else {
+      await this.stService.dismissEstimate(
+        changeOrder.serviceTitanChangeOrderId,
+        auditMemo,
+      );
+    }
+
+    // Update in DB
+    return this.prisma.changeOrder.update({
+      where: { changeOrderId },
+      data: { status: newStatus },
     });
   }
 }

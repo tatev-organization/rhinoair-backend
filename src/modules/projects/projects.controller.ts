@@ -1,4 +1,12 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -8,7 +16,10 @@ import {
 import { ProjectsService } from './projects.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
-import { CurrentUser, JwtUser } from '../../common/decorators/current-user.decorator';
+import {
+  CurrentUser,
+  JwtUser,
+} from '../../common/decorators/current-user.decorator';
 
 @ApiTags('Projects')
 @ApiBearerAuth()
@@ -34,7 +45,10 @@ export class ProjectsController {
   @Post()
   @ApiOperation({ summary: 'Create a project' })
   @ApiResponse({ status: 201, description: 'Project created.' })
-  create(@Body() createProjectDto: CreateProjectDto, @CurrentUser() user: JwtUser) {
+  create(
+    @Body() createProjectDto: CreateProjectDto,
+    @CurrentUser() user: JwtUser,
+  ) {
     return this.projectsService.create(createProjectDto, user);
   }
 
@@ -56,5 +70,21 @@ export class ProjectsController {
   @ApiResponse({ status: 404, description: 'Project not found.' })
   remove(@Param('id') id: string, @CurrentUser() user: JwtUser) {
     return this.projectsService.remove(id, user);
+  }
+
+  @Post(':projectId/change-orders/:changeOrderId/decide')
+  @ApiOperation({ summary: 'Approve or decline a change order' })
+  decideChangeOrder(
+    @Param('projectId') projectId: string,
+    @Param('changeOrderId') changeOrderId: string,
+    @Body() body: { isApproved: boolean },
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.projectsService.decideChangeOrder(
+      projectId,
+      changeOrderId,
+      body.isApproved,
+      user,
+    );
   }
 }

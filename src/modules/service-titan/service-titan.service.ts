@@ -410,19 +410,22 @@ export class ServiceTitanService {
   // 11. Sell Estimate (Approve Change Order)
   async sellEstimate(
     estimateId: string | number,
-    soldById: string | number,
     memo?: string
   ): Promise<void> {
     const tenantId =
       this.configService.get<string>('SERVICETITAN_TENANT_ID') || '';
     
     try {
-      // 1. Update summary for audit trail
+      let currentEst: any = null;
+
+      // 1. Fetch estimate to get current summary & soldBy
+      currentEst = await this.request<any>(
+        'GET',
+        `/sales/v2/tenant/${tenantId}/estimates/${estimateId}`
+      );
+
+      // Update summary for audit trail
       if (memo) {
-        const currentEst = await this.request<any>(
-          'GET',
-          `/sales/v2/tenant/${tenantId}/estimates/${estimateId}`
-        );
         const updatePayload = {
           name: currentEst.name,
           summary: currentEst.summary ? `${currentEst.summary}\n\n${memo}` : memo,
@@ -435,10 +438,15 @@ export class ServiceTitanService {
       }
 
       // 2. Sell Estimate
+      // Dynamic fallback: use currentEst.soldBy from GET response or config fallback
+      const finalSoldById = currentEst?.soldBy || 
+        this.configService.get<number>('ST_PARTNER_PORTAL_EMPLOYEE_ID') || 
+        1055523;
+
       await this.request<any>(
         'PUT',
         `/sales/v2/tenant/${tenantId}/estimates/${estimateId}/sell`,
-        { soldBy: Number(soldById) }
+        { soldBy: Number(finalSoldById) }
       );
     } catch (error) {
       this.logger.error(

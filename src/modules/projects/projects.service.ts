@@ -343,6 +343,20 @@ export class ProjectsService {
           },
         });
       } else {
+        // Prevent unique constraint violation on duplicate names (e.g. two "Change Order #1" in ST)
+        const existingNumberCheck = await this.prisma.changeOrder.findUnique({
+          where: {
+            projectId_number: {
+              projectId,
+              number,
+            },
+          },
+        });
+
+        if (existingNumberCheck) {
+          number = `${number}-${est.id}`;
+        }
+
         await this.prisma.changeOrder.create({
           data: {
             companyId,
@@ -478,9 +492,6 @@ export class ProjectsService {
 
     const newStatus = isApproved ? 'APPROVED' : 'DECLINED';
 
-    // Hardcoded Partner Portal employee ID as per client request
-    const partnerPortalEmployeeId = 1055523; // From the sample JSON soldBy
-
     // Fetch user details for audit trail
     const dbUser = await this.prisma.user.findUnique({
       where: { id: user.userId },
@@ -496,7 +507,6 @@ export class ProjectsService {
     if (isApproved) {
       await this.stService.sellEstimate(
         changeOrder.serviceTitanChangeOrderId,
-        partnerPortalEmployeeId,
         auditMemo,
       );
     } else {

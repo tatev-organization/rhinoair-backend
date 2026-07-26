@@ -13,12 +13,28 @@ import {
   MaxFileSizeValidator,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiConsumes,
+  ApiBody,
+} from '@nestjs/swagger';
 import { AdminService } from './admin.service';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { IsString, IsNotEmpty, IsNumber, Min, Max } from 'class-validator';
+
+export class UpdateSystemConfigDto {
+  @IsString()
+  @IsNotEmpty()
+  key: string;
+
+  @IsString()
+  @IsNotEmpty()
+  value: string;
+}
 
 export class AssignSTCustomerDto {
   @IsString()
@@ -55,6 +71,18 @@ export class AdminController {
   })
   getPartners() {
     return this.adminService.getPartners();
+  }
+
+  @Get('config')
+  @ApiOperation({ summary: 'Get all system configurations (Admin Only)' })
+  getSystemConfig() {
+    return this.adminService.getSystemConfig();
+  }
+
+  @Patch('config')
+  @ApiOperation({ summary: 'Update a system configuration (Admin Only)' })
+  updateSystemConfig(@Body() dto: UpdateSystemConfigDto) {
+    return this.adminService.updateSystemConfig(dto.key, dto.value);
   }
 
   @Get('st-customers')

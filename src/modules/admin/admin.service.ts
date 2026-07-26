@@ -22,6 +22,18 @@ export class AdminService {
     return this.stService.getCustomers();
   }
 
+  async getSystemConfig() {
+    return this.prisma.systemConfig.findMany();
+  }
+
+  async updateSystemConfig(key: string, value: string) {
+    return this.prisma.systemConfig.upsert({
+      where: { key },
+      update: { value },
+      create: { key, value },
+    });
+  }
+
   async getPartners() {
     return this.prisma.company.findMany({
       include: {
@@ -126,12 +138,17 @@ export class AdminService {
     let serviceTitanName = null;
     try {
       const allSTCustomers = await this.getSTCustomers();
-      const stCustomer = allSTCustomers.find((c: any) => c.id.toString() === serviceTitanCustomerId.toString());
+      const stCustomer = allSTCustomers.find(
+        (c: any) => c.id.toString() === serviceTitanCustomerId.toString(),
+      );
       if (stCustomer && stCustomer.name) {
         serviceTitanName = stCustomer.name;
       }
     } catch (err) {
-      console.error('Failed to fetch ST customer details during assignment', err);
+      console.error(
+        'Failed to fetch ST customer details during assignment',
+        err,
+      );
     }
 
     // Create the mapping
@@ -145,8 +162,11 @@ export class AdminService {
 
     // Automatically trigger sync for the assigned customer
     // so the admin panel and partner portal immediately reflect the changes!
-    this.projectsService.syncProjectsForCompany(companyId).catch(err => {
-      console.error(`Error auto-syncing ST customer ${serviceTitanCustomerId} for company ${companyId}:`, err);
+    this.projectsService.syncProjectsForCompany(companyId).catch((err) => {
+      console.error(
+        `Error auto-syncing ST customer ${serviceTitanCustomerId} for company ${companyId}:`,
+        err,
+      );
     });
 
     return mapping;
@@ -256,7 +276,9 @@ export class AdminService {
   }
 
   async updatePartnerTier(companyId: string, tier: number) {
-    const company = await this.prisma.company.findUnique({ where: { companyId } });
+    const company = await this.prisma.company.findUnique({
+      where: { companyId },
+    });
     if (!company) throw new NotFoundException('Partner not found');
 
     return this.prisma.company.update({
@@ -266,7 +288,9 @@ export class AdminService {
   }
 
   async getPartnerQuotes(companyId: string) {
-    const company = await this.prisma.company.findUnique({ where: { companyId } });
+    const company = await this.prisma.company.findUnique({
+      where: { companyId },
+    });
     if (!company) throw new NotFoundException('Partner not found');
 
     return this.prisma.quote.findMany({
@@ -279,11 +303,21 @@ export class AdminService {
   }
 
   // --- Document & Photo Uploads ---
-  async uploadProjectDocument(projectId: string, file: Express.Multer.File, category?: string) {
-    const project = await this.prisma.project.findUnique({ where: { projectId: projectId } });
+  async uploadProjectDocument(
+    projectId: string,
+    file: Express.Multer.File,
+    category?: string,
+  ) {
+    const project = await this.prisma.project.findUnique({
+      where: { projectId: projectId },
+    });
     if (!project) throw new NotFoundException('Project not found');
 
-    const result = await this.storageService.uploadFile(file.buffer, `rhino-air/projects/${projectId}/documents`, 'auto');
+    const result = await this.storageService.uploadFile(
+      file.buffer,
+      `rhino-air/projects/${projectId}/documents`,
+      'auto',
+    );
 
     return this.prisma.document.create({
       data: {
@@ -300,11 +334,21 @@ export class AdminService {
     });
   }
 
-  async uploadProjectPhoto(projectId: string, file: Express.Multer.File, phase?: string) {
-    const project = await this.prisma.project.findUnique({ where: { projectId: projectId } });
+  async uploadProjectPhoto(
+    projectId: string,
+    file: Express.Multer.File,
+    phase?: string,
+  ) {
+    const project = await this.prisma.project.findUnique({
+      where: { projectId: projectId },
+    });
     if (!project) throw new NotFoundException('Project not found');
 
-    const result = await this.storageService.uploadFile(file.buffer, `rhino-air/projects/${projectId}/photos`, 'image');
+    const result = await this.storageService.uploadFile(
+      file.buffer,
+      `rhino-air/projects/${projectId}/photos`,
+      'image',
+    );
 
     return this.prisma.photo.create({
       data: {

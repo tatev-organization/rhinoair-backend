@@ -30,6 +30,12 @@ model PricingConfig {
   updatedAt DateTime @updatedAt
 }
 
+model SystemConfig {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
 model CompanyServiceTitanCustomer {
   id                     String  @id @default(uuid())
   companyId              String

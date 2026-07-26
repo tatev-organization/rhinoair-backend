@@ -2,6 +2,7 @@ import { Injectable, Logger, HttpException, HttpStatus } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
+import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
 export class ServiceTitanService {
@@ -13,6 +14,7 @@ export class ServiceTitanService {
   constructor(
     private readonly configService: ConfigService,
     private readonly httpService: HttpService,
+    private readonly prisma: PrismaService,
   ) {}
 
   // 1. Get Access Token
@@ -410,25 +412,27 @@ export class ServiceTitanService {
   // 11. Sell Estimate (Approve Change Order)
   async sellEstimate(
     estimateId: string | number,
-    memo?: string
+    memo?: string,
   ): Promise<void> {
     const tenantId =
       this.configService.get<string>('SERVICETITAN_TENANT_ID') || '';
-    
+
     try {
       let currentEst: any = null;
 
       // 1. Fetch estimate to get current summary & soldBy
       currentEst = await this.request<any>(
         'GET',
-        `/sales/v2/tenant/${tenantId}/estimates/${estimateId}`
+        `/sales/v2/tenant/${tenantId}/estimates/${estimateId}`,
       );
 
       // Update summary for audit trail
       if (memo) {
         const updatePayload = {
           name: currentEst.name,
-          summary: currentEst.summary ? `${currentEst.summary}\n\n${memo}` : memo,
+          summary: currentEst.summary
+            ? `${currentEst.summary}\n\n${memo}`
+            : memo,
         };
         await this.request<any>(
           'PUT',
@@ -438,21 +442,33 @@ export class ServiceTitanService {
       }
 
       // 2. Sell Estimate
+      let dbFallbackId: string | null = null;
+      try {
+        const config = await this.prisma.systemConfig.findUnique({
+          where: { key: 'ST_PARTNER_PORTAL_EMPLOYEE_ID' },
+        });
+        if (config) dbFallbackId = config.value;
+      } catch (err) {
+        this.logger.error(
+          'Failed to get ST_PARTNER_PORTAL_EMPLOYEE_ID from db',
+          err,
+        );
+      }
+
       // Dynamic fallback: use currentEst.soldBy from GET response or config fallback
-      const finalSoldById = currentEst?.soldBy || 
-        this.configService.get<number>('ST_PARTNER_PORTAL_EMPLOYEE_ID') || 
+      const finalSoldById =
+        currentEst?.soldBy ||
+        dbFallbackId ||
+        this.configService.get<number>('ST_PARTNER_PORTAL_EMPLOYEE_ID') ||
         1055523;
 
       await this.request<any>(
         'PUT',
         `/sales/v2/tenant/${tenantId}/estimates/${estimateId}/sell`,
-        { soldBy: Number(finalSoldById) }
+        { soldBy: Number(finalSoldById) },
       );
     } catch (error) {
-      this.logger.error(
-        `Failed to sell estimate ${estimateId} in ST`,
-        error,
-      );
+      this.logger.error(`Failed to sell estimate ${estimateId} in ST`, error);
       throw error;
     }
   }
@@ -460,21 +476,23 @@ export class ServiceTitanService {
   // 12. Dismiss Estimate (Decline Change Order)
   async dismissEstimate(
     estimateId: string | number,
-    memo?: string
+    memo?: string,
   ): Promise<void> {
     const tenantId =
       this.configService.get<string>('SERVICETITAN_TENANT_ID') || '';
-    
+
     try {
       // 1. Update summary for audit trail
       if (memo) {
         const currentEst = await this.request<any>(
           'GET',
-          `/sales/v2/tenant/${tenantId}/estimates/${estimateId}`
+          `/sales/v2/tenant/${tenantId}/estimates/${estimateId}`,
         );
         const updatePayload = {
           name: currentEst.name,
-          summary: currentEst.summary ? `${currentEst.summary}\n\n${memo}` : memo,
+          summary: currentEst.summary
+            ? `${currentEst.summary}\n\n${memo}`
+            : memo,
         };
         await this.request<any>(
           'PUT',
@@ -487,7 +505,7 @@ export class ServiceTitanService {
       await this.request<any>(
         'PUT',
         `/sales/v2/tenant/${tenantId}/estimates/${estimateId}/dismiss`,
-        {}
+        {},
       );
     } catch (error) {
       this.logger.error(

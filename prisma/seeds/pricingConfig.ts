@@ -207,7 +207,6 @@ export const pricingConfig = {
       ducted: true,
       mini: true,
       multi: true,
-      multiCondRate: 2200,
     },
     {
       id: 'acpro',
@@ -222,7 +221,6 @@ export const pricingConfig = {
       ducted: true,
       mini: true,
       multi: true,
-      multiCondRate: 2000,
     },
     {
       id: 'daikin',
@@ -238,7 +236,6 @@ export const pricingConfig = {
       ducted: true,
       mini: true,
       multi: true,
-      multiCondRate: 2600,
     },
   ],
   BRAND_EFF: {
@@ -379,28 +376,22 @@ export const pricingConfig = {
   },
   DUCTLESS: {
     acpro: {
-      condenser: 2000,
-      multiSurcharge: 600,
       seer2: 'Up to 21 SEER2 · Inverter',
       warrantyFull: '10-Yr Warranty',
     },
     goodman: {
-      condenser: 2200,
-      multiSurcharge: 600,
       seer2: 'Up to 20 SEER2',
       warrantyFull: '10-Year Parts Limited Warranty*',
     },
     daikin: {
-      condenser: 2600,
-      multiSurcharge: 800,
       seer2: 'Up to 21.5 SEER2',
       warrantyFull: '12-Year Parts Limited Warranty',
     },
   },
   HEAD_TYPES: [
-    { id: 'wall', name: 'Wall-Mounted', adder: 0 },
-    { id: 'cassette', name: 'Ceiling Cassette', adder: 400 },
-    { id: 'concealed', name: 'Concealed / Ducted', adder: 600 },
+    { id: 'wall', name: 'Wall-Mounted' },
+    { id: 'cassette', name: 'Ceiling Cassette' },
+    { id: 'concealed', name: 'Concealed / Ducted' },
   ],
   HEAD_BTU: [
     { id: '9k', name: '9k BTU', adder: 0, btu: 9000 },

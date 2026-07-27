@@ -12,6 +12,47 @@ import { ProjectsService } from '../projects/projects.service';
 import { JwtUser } from '../../common/decorators/current-user.decorator';
 import { MailService } from '../mail/mail.service';
 
+function formatPayloadToText(payload: any, baseScope: string, tierLabel: string): string {
+  let text = `Scope: ${baseScope || 'N/A'}\nTier: ${tierLabel || 'N/A'}\n\n`;
+  if (!payload) return text;
+  
+  if (payload.systems && Array.isArray(payload.systems)) {
+    text += `--- SYSTEMS ---\n`;
+    payload.systems.forEach((s: any, i: number) => {
+      text += `System ${i + 1}: ${s.name || 'Unnamed'}\n`;
+      text += `  Type: ${s.sysType} | Brand: ${s.brand} | Tier: ${s.tier} | Tons: ${s.tons}\n`;
+      
+      if (s.sysType === 'multi' && s.heads && s.heads.length > 0) {
+        text += `  Heads: ${s.heads.map((h: any) => h.type).join(', ')}\n`;
+      }
+      
+      if (s.zoned) {
+         text += `  Zoned: Yes (${s.zoneCount || 2} zones)\n`;
+      }
+      
+      const activeAddons = Object.entries(s.addons || {})
+        .filter(([_, v]: any) => v.on)
+        .map(([k, v]: any) => `${k}${v.qty ? ` (Qty: ${v.qty})` : ''}`)
+        .join(', ');
+      if (activeAddons) text += `  Add-ons: ${activeAddons}\n`;
+      
+      if (s.notes) text += `  Notes: ${s.notes}\n`;
+      text += '\n';
+    });
+  }
+
+  const projAddons = Object.entries(payload.project?.addons || {})
+      .filter(([_, v]: any) => v.on)
+      .map(([k, v]: any) => `${k}${v.qty ? ` (Qty: ${v.qty})` : ''}`)
+      .join(', ');
+      
+  if (projAddons) {
+    text += `--- PROJECT ADD-ONS ---\n${projAddons}\n\n`;
+  }
+  
+  return text.trim();
+}
+
 @Injectable()
 export class QuotesService {
   private readonly logger = new Logger(QuotesService.name);
@@ -144,21 +185,32 @@ export class QuotesService {
       // 4. Create ST Project
       this.logger.log(`Creating ST Project for Location ${locationId}`);
       const projectName = `Quote ${quote.quoteNumber}`;
-      const projectSummary = `Scope: ${createQuoteDto.scope || 'N/A'}\nTier: ${createQuoteDto.tierLabel || 'N/A'}`;
+      
+      const detailedSummary = formatPayloadToText(
+        createQuoteDto.payload,
+        createQuoteDto.scope || '',
+        createQuoteDto.tierLabel || ''
+      );
 
       projectId = await this.serviceTitanService.createProject(
         stCustomerId,
         locationId,
         projectName,
-        projectSummary,
+        detailedSummary,
       );
     }
 
     // 5. Create ST Estimate
     this.logger.log(`Creating ST Estimate for Project ${projectId}`);
+    const estimateSummary = formatPayloadToText(
+      createQuoteDto.payload,
+      createQuoteDto.scope || '',
+      createQuoteDto.tierLabel || ''
+    ) + `\n\nQuote ID: ${quote.quoteNumber}`;
+
     const estimateId = await this.serviceTitanService.createEstimate(
       projectId,
-      `Scope: ${createQuoteDto.scope}\nTier: ${createQuoteDto.tierLabel}\nQuote ID: ${quote.quoteNumber}`,
+      estimateSummary,
       createQuoteDto.total,
     );
 

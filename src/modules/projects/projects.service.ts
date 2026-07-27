@@ -35,6 +35,10 @@ export class ProjectsService {
             phases: true,
           },
         },
+        quotes: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
       },
     });
 
@@ -84,25 +88,55 @@ export class ProjectsService {
 
         // Upsert into local DB. We only create if it doesn't exist to preserve admin's phase/status
         const existing = await this.prisma.project.findFirst({
-          where: { 
+          where: {
             serviceTitanProjectId: stProject.id.toString(),
-            companyId: companyId
+            companyId: companyId,
           },
         });
 
+        let targetProjectId: string;
+
+        const stStatusStr = typeof stProject.status === 'string' ? stProject.status : (stProject.status?.name || '');
+        const stStatusRaw = stStatusStr.toLowerCase().replace(/\s+/g, '');
+        
+        let determinedStatus: 'QUOTED' | 'ACTIVE' | 'COMPLETED' = 'QUOTED';
+        if (['completed'].includes(stStatusRaw)) {
+          determinedStatus = 'COMPLETED';
+        } else if (['pendingscheduling', 'scheduled', 'inprogress', 'hold', 'active'].includes(stStatusRaw)) {
+          determinedStatus = 'ACTIVE';
+        }
+
         if (existing) {
+          targetProjectId = existing.projectId;
+          let updateData: any = {};
+
           if (
             existing.builderName !== mapping.serviceTitanName &&
             mapping.serviceTitanName
           ) {
+            updateData.builderName = mapping.serviceTitanName;
+          }
+
+          // Automatically advance project status based on ST changes
+          const weight = { QUOTED: 0, ACTIVE: 1, COMPLETED: 2 };
+          if (weight[determinedStatus] > weight[existing.status as 'QUOTED' | 'ACTIVE' | 'COMPLETED']) {
+            updateData.status = determinedStatus;
+            
+            // If completed, ensure currentPhaseIndex is 3
+            if (determinedStatus === 'COMPLETED') {
+              updateData.currentPhaseIndex = 3;
+              updateData.currentPhase = 'Final';
+              updateData.phaseClass = 'complete';
+            }
+          }
+
+          if (Object.keys(updateData).length > 0) {
             await this.prisma.project.update({
               where: { projectId: existing.projectId },
-              data: { builderName: mapping.serviceTitanName },
+              data: updateData,
             });
           }
-        }
-
-        if (!existing) {
+        } else {
           const projectName =
             stProject.name || `ST Project #${stProject.number || stProject.id}`;
 
@@ -113,10 +147,10 @@ export class ProjectsService {
               address: null, // Since ST Project doesn't necessarily have a deep location object in the summary view, or we can leave it null until we fetch location details if needed
               serviceTitanProjectId: stProject.id.toString(),
               builderName: mapping.serviceTitanName || 'Unknown Builder',
-              status: 'ACTIVE',
-              currentPhaseIndex: 0,
-              currentPhase: 'Planning',
-              phaseClass: 'planning',
+              status: determinedStatus,
+              currentPhaseIndex: determinedStatus === 'COMPLETED' ? 3 : 0,
+              currentPhase: determinedStatus === 'COMPLETED' ? 'Final' : 'Planning',
+              phaseClass: determinedStatus === 'COMPLETED' ? 'complete' : 'planning',
               phases: {
                 create: [
                   {
@@ -225,19 +259,54 @@ export class ProjectsService {
               },
             },
           });
-
-          // Link any orphaned quotes that belong to this newly created ST Project
-          await this.prisma.quote.updateMany({
-            where: { stProjectId: parseInt(stProject.id.toString(), 10), projectId: null },
-            data: { projectId: newProject.projectId },
-          });
+          targetProjectId = newProject.projectId;
         }
 
-        // --- Sync Location ---
+        // Link any orphaned quotes that belong to this ST Project
+        await this.prisma.quote.updateMany({
+          where: {
+            stProjectId: parseInt(stProject.id.toString(), 10),
+            projectId: null,
+          },
+          data: { projectId: targetProjectId },
+        });
+      }
+    }
+
+    // Fallback: Link any remaining orphaned quotes to the most recent project for the same builder
+    const orphanedQuotes = await this.prisma.quote.findMany({
+      where: { companyId, projectId: null },
+    });
+
+    for (const orphan of orphanedQuotes) {
+      if (!orphan.builderName && !orphan.projectAddress) continue;
+
+      // Try to find a project by builderName first
+      const matchingProjects = await this.prisma.project.findMany({
+        where: { companyId, builderName: orphan.builderName || undefined },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      if (matchingProjects.length > 0) {
+        await this.prisma.quote.update({
+          where: { quoteId: orphan.quoteId },
+          data: { projectId: matchingProjects[0].projectId },
+        });
+      }
+    }
+
+    // --- Sync Location ---
+    for (const mapping of company.stCustomers) {
+      const stProjects = await this.stService.getProjectsByCustomerId(
+        mapping.serviceTitanCustomerId,
+      );
+
+      for (const stProject of stProjects) {
+        if (!stProject || !stProject.id) continue;
         const project = await this.prisma.project.findFirst({
-          where: { 
+          where: {
             serviceTitanProjectId: stProject.id.toString(),
-            companyId: companyId
+            companyId: companyId,
           },
         });
 
@@ -273,9 +342,9 @@ export class ProjectsService {
       for (const inv of invoices) {
         if (inv.projectId) {
           const project = await this.prisma.project.findFirst({
-            where: { 
+            where: {
               serviceTitanProjectId: inv.projectId.toString(),
-              companyId: companyId
+              companyId: companyId,
             },
           });
 
@@ -386,7 +455,8 @@ export class ProjectsService {
   async findOne(projectId: string, user: JwtUser) {
     const whereClause: any = { projectId };
     if (user.role !== 'SUPER_ADMIN') {
-      if (!user.companyId) throw new ForbiddenException('User must belong to a company');
+      if (!user.companyId)
+        throw new ForbiddenException('User must belong to a company');
       whereClause.companyId = user.companyId;
     }
 

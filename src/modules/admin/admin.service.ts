@@ -118,20 +118,27 @@ export class AdminService {
       throw new NotFoundException(`Company with ID ${companyId} not found`);
     }
 
-    // Check if mapping already exists
-    const existing = await this.prisma.companyServiceTitanCustomer.findUnique({
-      where: {
-        companyId_serviceTitanCustomerId: {
-          companyId,
+    // Check if mapping already exists globally
+    const globalExisting =
+      await this.prisma.companyServiceTitanCustomer.findFirst({
+        where: {
           serviceTitanCustomerId,
         },
-      },
-    });
+        include: {
+          company: true,
+        },
+      });
 
-    if (existing) {
-      throw new ConflictException(
-        'This ServiceTitan Customer ID is already assigned to this partner.',
-      );
+    if (globalExisting) {
+      if (globalExisting.companyId === companyId) {
+        throw new ConflictException(
+          'This ServiceTitan Customer ID is already assigned to this partner.',
+        );
+      } else {
+        throw new ConflictException(
+          `This ServiceTitan Customer ID is already assigned to another partner: ${globalExisting.company.name}`,
+        );
+      }
     }
 
     // Fetch ST Customer details to save the name

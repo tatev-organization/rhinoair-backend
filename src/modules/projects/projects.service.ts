@@ -84,7 +84,10 @@ export class ProjectsService {
 
         // Upsert into local DB. We only create if it doesn't exist to preserve admin's phase/status
         const existing = await this.prisma.project.findFirst({
-          where: { serviceTitanProjectId: stProject.id.toString() },
+          where: { 
+            serviceTitanProjectId: stProject.id.toString(),
+            companyId: companyId
+          },
         });
 
         if (existing) {
@@ -225,14 +228,17 @@ export class ProjectsService {
 
           // Link any orphaned quotes that belong to this newly created ST Project
           await this.prisma.quote.updateMany({
-            where: { stProjectId: stProject.id.toString(), projectId: null },
+            where: { stProjectId: parseInt(stProject.id.toString(), 10), projectId: null },
             data: { projectId: newProject.projectId },
           });
         }
 
         // --- Sync Location ---
         const project = await this.prisma.project.findFirst({
-          where: { serviceTitanProjectId: stProject.id.toString() },
+          where: { 
+            serviceTitanProjectId: stProject.id.toString(),
+            companyId: companyId
+          },
         });
 
         if (project) {
@@ -267,7 +273,10 @@ export class ProjectsService {
       for (const inv of invoices) {
         if (inv.projectId) {
           const project = await this.prisma.project.findFirst({
-            where: { serviceTitanProjectId: inv.projectId.toString() },
+            where: { 
+              serviceTitanProjectId: inv.projectId.toString(),
+              companyId: companyId
+            },
           });
 
           if (project) {

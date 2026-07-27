@@ -384,11 +384,14 @@ export class ProjectsService {
   }
 
   async findOne(projectId: string, user: JwtUser) {
+    const whereClause: any = { projectId };
+    if (user.role !== 'SUPER_ADMIN') {
+      if (!user.companyId) throw new ForbiddenException('User must belong to a company');
+      whereClause.companyId = user.companyId;
+    }
+
     let project = await this.prisma.project.findFirst({
-      where: {
-        projectId,
-        companyId: user.companyId!,
-      },
+      where: whereClause,
       include: {
         company: true,
         phases: {

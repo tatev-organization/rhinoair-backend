@@ -232,10 +232,69 @@ export class AdminService {
       updateData.finalInspectionAt = new Date();
     }
 
-    return this.prisma.project.update({
+    const updatedProject = await this.prisma.project.update({
       where: { projectId },
       data: updateData,
     });
+
+    // Derive stage states from the phase
+    // 1. Update ProjectPhase statuses
+    await this.prisma.projectPhase.updateMany({
+      where: { projectId, sortOrder: { lt: dto.currentPhaseIndex } },
+      data: { status: 'DONE' },
+    });
+    await this.prisma.projectPhase.updateMany({
+      where: { projectId, sortOrder: dto.currentPhaseIndex },
+      data: { status: 'CURRENT' },
+    });
+    await this.prisma.projectPhase.updateMany({
+      where: { projectId, sortOrder: { gt: dto.currentPhaseIndex } },
+      data: { status: 'UPCOMING' },
+    });
+
+    // 2. Update ProjectTask statuses in past phases
+    const pastPhases = await this.prisma.projectPhase.findMany({
+      where: { projectId, sortOrder: { lt: dto.currentPhaseIndex } },
+      select: { phaseId: true },
+    });
+    if (pastPhases.length > 0) {
+      await this.prisma.projectTask.updateMany({
+        where: { phaseId: { in: pastPhases.map((p) => p.phaseId) } },
+        data: { status: 'COMPLETE' },
+      });
+    }
+
+    // 3. Update ProjectTask statuses in future phases
+    const futurePhases = await this.prisma.projectPhase.findMany({
+      where: { projectId, sortOrder: { gt: dto.currentPhaseIndex } },
+      select: { phaseId: true },
+    });
+    if (futurePhases.length > 0) {
+      await this.prisma.projectTask.updateMany({
+        where: { phaseId: { in: futurePhases.map((p) => p.phaseId) } },
+        data: { status: 'NOT_STARTED' },
+      });
+    }
+
+    // 4. Update ProjectTask statuses in CURRENT phase
+    const currentPhase = await this.prisma.projectPhase.findFirst({
+      where: { projectId, sortOrder: dto.currentPhaseIndex },
+      select: { phaseId: true },
+    });
+    if (currentPhase) {
+      // First task -> IN_PROGRESS
+      await this.prisma.projectTask.updateMany({
+        where: { phaseId: currentPhase.phaseId, sortOrder: 0 },
+        data: { status: 'IN_PROGRESS' },
+      });
+      // Rest -> NOT_STARTED
+      await this.prisma.projectTask.updateMany({
+        where: { phaseId: currentPhase.phaseId, sortOrder: { gt: 0 } },
+        data: { status: 'NOT_STARTED' },
+      });
+    }
+
+    return updatedProject;
   }
 
   async getProjectById(projectId: string) {

@@ -631,7 +631,7 @@ export const pricingConfig = {
       id: 'daikin_48k',
       brand: 'daikin',
       name: 'Daikin 48k',
-      max: 4300,
+      max: 48000,
       price: 4300,
       ports: 5,
     },

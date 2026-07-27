@@ -291,6 +291,7 @@ export class ProjectsService {
               update: {
                 status: isPaid ? 'PAID' : 'DUE',
                 amount: parseFloat(inv.total || '0'),
+                dueDate: inv.dueDate ? new Date(inv.dueDate) : null,
                 serviceTitanPayload: inv,
               },
               create: {
@@ -301,6 +302,7 @@ export class ProjectsService {
                 description: 'Project Invoice',
                 status: isPaid ? 'PAID' : 'DUE',
                 amount: parseFloat(inv.total || '0'),
+                dueDate: inv.dueDate ? new Date(inv.dueDate) : null,
                 serviceTitanPayload: inv,
               },
             });

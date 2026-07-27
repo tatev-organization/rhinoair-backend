@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Param } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { InvoicesService } from './invoices.service';
 import { CurrentUser, JwtUser } from '../../common/decorators/current-user.decorator';
@@ -14,5 +14,12 @@ export class InvoicesController {
   @ApiResponse({ status: 200, description: 'Returns a list of invoices.' })
   findAll(@CurrentUser() user: JwtUser) {
     return this.invoicesService.findAll(user);
+  }
+
+  @Get(':id/details')
+  @ApiOperation({ summary: 'Get full invoice details (real-time from ST)' })
+  @ApiResponse({ status: 200, description: 'Returns invoice details.' })
+  getInvoiceDetails(@Param('id') id: string, @CurrentUser() user: JwtUser) {
+    return this.invoicesService.getInvoiceDetails(id, user);
   }
 }

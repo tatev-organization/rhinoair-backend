@@ -383,6 +383,26 @@ export class ServiceTitanService {
     }
   }
 
+  // 10. Get Invoice Details (Individual Invoice)
+  async getInvoiceDetails(invoiceId: string): Promise<any> {
+    if (!invoiceId) return null;
+    const tenantId =
+      this.configService.get<string>('SERVICETITAN_TENANT_ID') || '';
+    try {
+      const response = await this.request<any>(
+        'GET',
+        `/accounting/v2/tenant/${tenantId}/invoices?ids=${invoiceId}`,
+      );
+      return response?.data?.[0] || null;
+    } catch (error) {
+      this.logger.error(
+        `Failed to fetch invoice details for invoice ${invoiceId} from ST`,
+        error,
+      );
+      return null;
+    }
+  }
+
   // 10. Get Change Order Estimates by Project ID
   async getChangeOrderEstimates(projectId: string): Promise<any[]> {
     if (!projectId) return [];

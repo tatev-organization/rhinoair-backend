@@ -275,7 +275,7 @@ export class ProjectsService {
 
     // Fallback: Link any remaining orphaned quotes to the most recent project for the same builder
     const orphanedQuotes = await this.prisma.quote.findMany({
-      where: { companyId, projectId: null },
+      where: { companyId, projectId: null, stProjectId: null },
     });
 
     for (const orphan of orphanedQuotes) {

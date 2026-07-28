@@ -12,44 +12,71 @@ import { ProjectsService } from '../projects/projects.service';
 import { JwtUser } from '../../common/decorators/current-user.decorator';
 import { MailService } from '../mail/mail.service';
 
-function formatPayloadToText(payload: any, baseScope: string, tierLabel: string): string {
-  let text = `Scope: ${baseScope || 'N/A'}\nTier: ${tierLabel || 'N/A'}\n\n`;
-  if (!payload) return text;
-  
+function formatPayloadToText(
+  payload: any,
+  baseScope: string,
+  tierLabel: string,
+): string {
+  let text = `Scope: ${baseScope || 'N/A'}\nTier: ${tierLabel || 'N/A'}\n`;
+  if (payload?.project) {
+    text += `Builder: ${payload.project.builder || 'N/A'}\n`;
+    text += `Address: ${payload.project.address || 'N/A'}\n`;
+  }
+  text += `\n`;
+
+  if (!payload) return text.trim();
+
   if (payload.systems && Array.isArray(payload.systems)) {
     text += `--- SYSTEMS ---\n`;
     payload.systems.forEach((s: any, i: number) => {
       text += `System ${i + 1}: ${s.name || 'Unnamed'}\n`;
-      text += `  Type: ${s.sysType} | Brand: ${s.brand} | Tier: ${s.tier} | Tons: ${s.tons}\n`;
-      
-      if (s.sysType === 'multi' && s.heads && s.heads.length > 0) {
-        text += `  Heads: ${s.heads.map((h: any) => h.type).join(', ')}\n`;
+      text += `  Type: ${s.sysType} | Brand: ${s.brand} | Tier: ${s.tier}\n`;
+
+      if (s.sysType === 'ducted') {
+        text += `  Tons: ${s.tons}\n`;
+      } else if (s.sysType === 'mini') {
+        const btu = s.miniId ? s.miniId.split('_')[1] : 'Unknown';
+        text += `  BTU: ${btu}\n`;
       }
-      
+
+      if (s.heads && s.heads.length > 0) {
+        if (s.sysType === 'multi' || s.sysType === 'mini') {
+          text += `  Heads: ${s.heads.map((h: any) => h.type).join(', ')}\n`;
+        }
+      }
+
       if (s.zoned) {
-         text += `  Zoned: Yes (${s.zoneCount || 2} zones)\n`;
+        text += `  Zoned: Yes (${s.zoneCount || 2} zones)\n`;
       }
-      
+
+      if (s.singleNest) {
+        text += `  Nest Thermostat: Yes (Single Zone)\n`;
+      }
+
+      if (s.multiNest) {
+        text += `  Nest Thermostat: Yes (Multi Zone)\n`;
+      }
+
       const activeAddons = Object.entries(s.addons || {})
         .filter(([_, v]: any) => v.on)
         .map(([k, v]: any) => `${k}${v.qty ? ` (Qty: ${v.qty})` : ''}`)
         .join(', ');
       if (activeAddons) text += `  Add-ons: ${activeAddons}\n`;
-      
+
       if (s.notes) text += `  Notes: ${s.notes}\n`;
       text += '\n';
     });
   }
 
   const projAddons = Object.entries(payload.project?.addons || {})
-      .filter(([_, v]: any) => v.on)
-      .map(([k, v]: any) => `${k}${v.qty ? ` (Qty: ${v.qty})` : ''}`)
-      .join(', ');
-      
+    .filter(([_, v]: any) => v.on)
+    .map(([k, v]: any) => `${k}${v.qty ? ` (Qty: ${v.qty})` : ''}`)
+    .join(', ');
+
   if (projAddons) {
     text += `--- PROJECT ADD-ONS ---\n${projAddons}\n\n`;
   }
-  
+
   return text.trim();
 }
 
@@ -83,13 +110,16 @@ export class QuotesService {
     });
 
     // Send email notification to office
-    const notificationEmail = process.env.QUOTE_NOTIFICATION_EMAIL || 'info@rhinoair.com';
-    this.mailService.sendQuoteSubmittedNotification(notificationEmail, {
-      ...createQuoteDto,
-      quoteNumber,
-    }).catch((err) => {
-      this.logger.error(`Failed to send email for quote ${quoteNumber}`, err);
-    });
+    const notificationEmail =
+      process.env.QUOTE_NOTIFICATION_EMAIL || 'info@rhinoair.com';
+    this.mailService
+      .sendQuoteSubmittedNotification(notificationEmail, {
+        ...createQuoteDto,
+        quoteNumber,
+      })
+      .catch((err) => {
+        this.logger.error(`Failed to send email for quote ${quoteNumber}`, err);
+      });
 
     return quote;
   }
@@ -185,11 +215,11 @@ export class QuotesService {
       // 4. Create ST Project
       this.logger.log(`Creating ST Project for Location ${locationId}`);
       const projectName = `Quote ${quote.quoteNumber}`;
-      
+
       const detailedSummary = formatPayloadToText(
         createQuoteDto.payload,
         createQuoteDto.scope || '',
-        createQuoteDto.tierLabel || ''
+        createQuoteDto.tierLabel || '',
       );
 
       projectId = await this.serviceTitanService.createProject(
@@ -202,11 +232,12 @@ export class QuotesService {
 
     // 5. Create ST Estimate
     this.logger.log(`Creating ST Estimate for Project ${projectId}`);
-    const estimateSummary = formatPayloadToText(
-      createQuoteDto.payload,
-      createQuoteDto.scope || '',
-      createQuoteDto.tierLabel || ''
-    ) + `\n\nQuote ID: ${quote.quoteNumber}`;
+    const estimateSummary =
+      formatPayloadToText(
+        createQuoteDto.payload,
+        createQuoteDto.scope || '',
+        createQuoteDto.tierLabel || '',
+      ) + `\n\nQuote ID: ${quote.quoteNumber}`;
 
     const estimateId = await this.serviceTitanService.createEstimate(
       projectId,
@@ -264,7 +295,7 @@ export class QuotesService {
 
   async update(id: string, updateQuoteDto: UpdateQuoteDto, user: JwtUser) {
     const existingQuote = await this.findOne(id, user);
-    
+
     // 1. Update in Local DB
     const updatedQuote = await this.prisma.quote.update({
       where: { quoteId: id },
@@ -272,16 +303,25 @@ export class QuotesService {
     });
 
     // 2. Sync to ServiceTitan if stEstimateId exists
-    if (existingQuote.stEstimateId && updateQuoteDto.total !== undefined && updateQuoteDto.scope !== undefined) {
+    if (
+      existingQuote.stEstimateId &&
+      updateQuoteDto.total !== undefined &&
+      updateQuoteDto.scope !== undefined
+    ) {
       try {
         await this.serviceTitanService.updateEstimate(
           existingQuote.stEstimateId,
           `Scope: ${updateQuoteDto.scope}\nTier: ${updateQuoteDto.tierLabel}\nQuote ID: ${existingQuote.quoteNumber}`,
           updateQuoteDto.total,
         );
-        this.logger.log(`Successfully updated Estimate ${existingQuote.stEstimateId} in ST!`);
+        this.logger.log(
+          `Successfully updated Estimate ${existingQuote.stEstimateId} in ST!`,
+        );
       } catch (err) {
-        this.logger.error(`Failed to update Estimate ${existingQuote.stEstimateId} in ST. It might be sold or locked.`, err);
+        this.logger.error(
+          `Failed to update Estimate ${existingQuote.stEstimateId} in ST. It might be sold or locked.`,
+          err,
+        );
       }
     }
 

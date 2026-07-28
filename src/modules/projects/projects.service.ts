@@ -392,11 +392,11 @@ export class ProjectsService {
 
       const stChangeOrderId = est.id.toString();
 
-      // Parse name: "Change Order #1 - Additional Electrical Work"
+      // Parse name: "Change Order #1 - Additional Electrical Work" or "CO #1 - Name"
       let number = `CO-${est.id}`;
       let title = est.name;
 
-      const match = est.name.match(/Change Order #(\d+)\s*-\s*(.*)/i);
+      const match = est.name.match(/^(?:Change Order|CO)\s*#(\d+)(?:\s*-\s*(.*))?/i);
       if (match) {
         number = `CO-${match[1].padStart(2, '0')}`;
         title = match[2];

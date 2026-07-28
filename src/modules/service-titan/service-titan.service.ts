@@ -416,9 +416,8 @@ export class ServiceTitanService {
 
       const estimates = response.data || [];
       // Filter estimates that start with "Change Order"
-      return estimates.filter(
-        (est: any) =>
-          est.name && est.name.toLowerCase().startsWith('change order'),
+      return estimates.filter((est: any) =>
+        est.name && /^(change order|co)\s*#/i.test(est.name),
       );
     } catch (error) {
       this.logger.error(

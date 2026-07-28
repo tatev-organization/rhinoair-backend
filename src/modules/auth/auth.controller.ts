@@ -19,6 +19,7 @@ import {
   ResetPasswordDto,
   RegisterDto,
   VerifyDto,
+  ChangePasswordDto,
 } from './dto/auth.dto';
 import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser, JwtUser } from '../../common/decorators/current-user.decorator';
@@ -82,5 +83,16 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Current user profile with company info.' })
   getProfile(@CurrentUser() user: JwtUser) {
     return this.authService.getProfile(user.userId);
+  }
+
+  @ApiBearerAuth()
+  @Post('change-password')
+  @ApiOperation({ summary: 'Change password for logged in user' })
+  @ApiResponse({ status: 200, description: 'Password changed successfully.' })
+  changePassword(
+    @CurrentUser() user: JwtUser,
+    @Body() dto: ChangePasswordDto,
+  ) {
+    return this.authService.changePassword(user.userId, dto);
   }
 }

@@ -14,6 +14,7 @@ import {
   ResetPasswordDto,
   RegisterDto,
   VerifyDto,
+  ChangePasswordDto,
 } from './dto/auth.dto';
 import * as bcrypt from 'bcrypt';
 import { MailService } from '../mail/mail.service';
@@ -235,6 +236,35 @@ export class AuthService {
     } = user;
 
     return safeUser;
+  }
+
+  // ── Change Password ──────────────────────────────────────────────────
+  async changePassword(userId: string, dto: ChangePasswordDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    const isPasswordValid = await bcrypt.compare(
+      dto.currentPassword,
+      user.password,
+    );
+
+    if (!isPasswordValid) {
+      throw new BadRequestException('Incorrect current password');
+    }
+
+    const hashedNewPassword = await bcrypt.hash(dto.newPassword, 10);
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedNewPassword },
+    });
+
+    return { message: 'Password changed successfully' };
   }
 
   // ── Generate Tokens ──────────────────────────────────────────────────

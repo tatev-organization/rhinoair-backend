@@ -1,12 +1,5 @@
 # Rhino Air Portal - Backend
 
-This is the backend API for the Rhino Air Partner Portal, built with [NestJS](https://nestjs.com/) and Prisma ORM.
-
-## Prerequisites
-- Node.js (v18+)
-- npm or yarn
-- PostgreSQL Database
-
 ## Getting Started
 
 1. **Install Dependencies:**
@@ -39,5 +32,5 @@ This is the backend API for the Rhino Air Partner Portal, built with [NestJS](ht
 ## Build for Production
 ```bash
 npm run build
-npm run start:prod
+npm run start:dev
 ```

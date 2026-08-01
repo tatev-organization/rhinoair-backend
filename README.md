@@ -28,9 +28,3 @@
 
 5. **API Access:**
    The API will be available at `http://localhost:3001/api/v1` (or whichever port you configured).
-
-## Build for Production
-```bash
-npm run build
-npm run start:dev
-```
